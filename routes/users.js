@@ -1,98 +1,75 @@
 const express = require('express');
 const router = express.Router();
+const User = require('../models/User');
 
-// Mock user data
-let users = [
-  {
-    id: '1',
-    username: 'demo_user',
-    email: 'demo@example.com',
-    createdAt: new Date()
-  }
-];
+// Test endpoint
+router.get('/test', (req, res) => {
+  res.json({ message: 'Users route çalışıyor!' });
+});
+
 
 // Get all users
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const usersWithoutPassword = users.map(user => ({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      createdAt: user.createdAt
-    }));
-    
-    res.json(usersWithoutPassword);
+    const users = await User.find({}, '-password');
+    res.json(users);
   } catch (error) {
     res.status(500).json({ message: 'Sunucu hatası!' });
   }
 });
 
 // Get user by ID
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const user = users.find(u => u.id === req.params.id);
+    const user = await User.findById(req.params.id, '-password');
     
     if (!user) {
       return res.status(404).json({ message: 'Kullanıcı bulunamadı!' });
     }
 
-    const userWithoutPassword = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      createdAt: user.createdAt
-    };
-
-    res.json(userWithoutPassword);
+    res.json(user);
   } catch (error) {
     res.status(500).json({ message: 'Sunucu hatası!' });
   }
 });
 
 // Update user
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
-    const { username, email } = req.body;
-    const userIndex = users.findIndex(u => u.id === req.params.id);
+    const { name, email, brandType, description, category, address, city, district } = req.body;
     
-    if (userIndex === -1) {
+    const user = await User.findById(req.params.id);
+    
+    if (!user) {
       return res.status(404).json({ message: 'Kullanıcı bulunamadı!' });
     }
 
-    users[userIndex] = {
-      ...users[userIndex],
-      username: username || users[userIndex].username,
-      email: email || users[userIndex].email,
-      updatedAt: new Date()
-    };
-
-    const userWithoutPassword = {
-      id: users[userIndex].id,
-      username: users[userIndex].username,
-      email: users[userIndex].email,
-      createdAt: users[userIndex].createdAt,
-      updatedAt: users[userIndex].updatedAt
-    };
-
-    res.json({
-      message: 'Kullanıcı güncellendi!',
-      user: userWithoutPassword
-    });
+    // Update user fields
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (brandType) user.brandType = brandType;
+    if (description) user.description = description;
+    if (category) user.category = category;
+    if (address) user.address = address;
+    if (city) user.city = city;
+    if (district) user.district = district;
+    
+    await user.save();
+    
+    res.json({ message: 'Kullanıcı güncellendi!', user: user });
   } catch (error) {
     res.status(500).json({ message: 'Sunucu hatası!' });
   }
 });
 
 // Delete user
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const userIndex = users.findIndex(u => u.id === req.params.id);
+    const user = await User.findByIdAndDelete(req.params.id);
     
-    if (userIndex === -1) {
+    if (!user) {
       return res.status(404).json({ message: 'Kullanıcı bulunamadı!' });
     }
-
-    users.splice(userIndex, 1);
     
     res.json({ message: 'Kullanıcı silindi!' });
   } catch (error) {
@@ -100,4 +77,5 @@ router.delete('/:id', (req, res) => {
   }
 });
 
-module.exports = router; 
+
+module.exports = router;

@@ -238,22 +238,98 @@ router.get('/test', (req, res) => {
 // AI Banner oluşturma endpoint'i
 router.post('/generate-banner', async (req, res) => {
   try {
-    const { restaurantName, campaignDescription, targetAudience, location, brandInfo, category } = req.body;
+    const { restaurantId, restaurantName, campaignDescription, targetAudience, location, brandInfo, category, codeQuota } = req.body;
 
-    if (!restaurantName || !campaignDescription) {
+    // JWT token'dan kullanıcı bilgilerini al
+    let user = null;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    console.log('🔐 JWT Token kontrolü:', {
+      hasToken: !!token,
+      tokenLength: token ? token.length : 0,
+      tokenPreview: token ? token.substring(0, 20) + '...' : 'Yok'
+    });
+    
+    if (token) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        user = await User.findById(decoded.userId);
+        console.log('👤 Kullanıcı bulundu:', {
+          userId: user?._id,
+          name: user?.name,
+          logo: user?.logo,
+          category: user?.category
+        });
+      } catch (jwtError) {
+        console.log('❌ JWT token hatası:', jwtError.message);
+      }
+    } else {
+      console.log('⚠️ JWT token bulunamadı');
+    }
+
+    // restaurantId varsa restoran bilgisini al, yoksa restaurantName kullan
+    let restaurant = null;
+    if (restaurantId) {
+      restaurant = await Restaurant.findById(restaurantId);
+      if (!restaurant) {
+        return res.status(400).json({
+          success: false,
+          message: 'Restoran bulunamadı!'
+        });
+      }
+    }
+
+    if (!restaurant && !restaurantName) {
       return res.status(400).json({
         success: false,
-        message: 'Restoran adı ve kampanya açıklaması gerekli!'
+        message: 'Restoran ID veya Restoran adı gerekli!'
       });
     }
 
-    console.log('AI Banner oluşturma isteği:', { restaurantName, campaignDescription, targetAudience });
+    if (!campaignDescription) {
+      return res.status(400).json({
+        success: false,
+        message: 'Kampanya açıklaması gerekli!'
+      });
+    }
+
+    const finalRestaurantName = restaurant ? restaurant.name : restaurantName;
+
+    // Kod doğrulama ve kota kontrolü
+    if (restaurant) {
+      // Kota kontrolü
+      if (restaurant.codeQuota.remaining <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Kota limiti doldu! Daha fazla banner oluşturamazsınız.'
+        });
+      }
+
+      // Kod doğrulama (eğer kod gönderilmişse)
+      const { verificationCode } = req.body;
+      if (verificationCode && restaurant.verificationCode) {
+        if (verificationCode !== restaurant.verificationCode) {
+          return res.status(400).json({
+            success: false,
+            message: 'Doğrulama kodu hatalı!'
+          });
+        }
+      }
+
+      console.log('Kota kontrolü geçildi:', {
+        total: restaurant.codeQuota.total,
+        used: restaurant.codeQuota.used,
+        remaining: restaurant.codeQuota.remaining
+      });
+    }
+
+    console.log('AI Banner oluşturma isteği:', { finalRestaurantName, campaignDescription, targetAudience });
 
     // AI servisine istek gönder
     let aiResponse;
     try {
       const aiServiceResponse = await axios.post(process.env.AI_SERVICE_URL + '/generate-banner', {
-        restaurant_name: restaurantName,
+        restaurant_name: finalRestaurantName,
         campaign_description: campaignDescription,
         target_audience: targetAudience
       }, {
@@ -275,9 +351,9 @@ router.post('/generate-banner', async (req, res) => {
       aiResponse = {
         success: true,
         data: {
-          title: `${restaurantName}`,
+          title: `${finalRestaurantName}`,
           ai_generated_text: `🎉 ${campaignDescription}\n\n⭐ Harika fırsatlar\n⏰ Sınırlı süre\n📱 Hemen tıklayın!`,
-          campaign_details: `Restoran: ${restaurantName}\nKampanya: ${campaignDescription}\nHedef: ${targetAudience}`,
+          campaign_details: `Restoran: ${finalRestaurantName}\nKampanya: ${campaignDescription}\nHedef: ${targetAudience}`,
           model: 'fallback',
           version: '1.0'
         }
@@ -289,12 +365,14 @@ router.post('/generate-banner', async (req, res) => {
     }
 
     // Restoran bilgilerini al veya oluştur
-    let restaurant = await Restaurant.findOne({ name: restaurantName });
+    if (!restaurant) {
+      restaurant = await Restaurant.findOne({ name: finalRestaurantName });
+    }
     
     if (!restaurant) {
       // Yeni restoran oluştur
       restaurant = new Restaurant({
-        name: restaurantName,
+        name: finalRestaurantName,
         type: brandInfo?.type || 'restaurant',
         address: {
           city: location?.city || 'İstanbul',
@@ -315,7 +393,7 @@ router.post('/generate-banner', async (req, res) => {
           sunday: { open: '10:00', close: '22:00' }
         },
         logo: null,
-        description: brandInfo?.description || `${restaurantName} restoranı`,
+        description: brandInfo?.description || `${finalRestaurantName} restoranı`,
         isActive: true
       });
       
@@ -326,7 +404,7 @@ router.post('/generate-banner', async (req, res) => {
     // AI service'den gelen banner_image kullanılıyor
     // Görseli dosya olarak kaydet
     if (aiResponse.data.banner_image) {
-        const filename = `banner_${restaurantName}_${Date.now()}.png`;
+        const filename = `banner_${finalRestaurantName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.png`;
         const image_url = saveBase64Image(aiResponse.data.banner_image, filename);
         if (image_url) {
             console.log(`Görsel kaydedildi: ${image_url}`);
@@ -375,11 +453,54 @@ router.post('/generate-banner', async (req, res) => {
         version: aiResponse.data.version || '1.0',
         generationDate: new Date()
       },
-      status: 'active'
+      status: 'active',
+      codeQuota: {
+        total: codeQuota || 10,
+        used: 0,
+        remaining: codeQuota || 10
+      },
+      brandProfile: user ? {
+        logo: user.logo || null,
+        description: user.description || '',
+        category: user.category || category || 'Kahve',
+        brandType: user.brandType || 'Restoran',
+        email: user.email || '',
+        address: user.address || '',
+        city: user.city || location?.city || 'İstanbul',
+        district: user.district || location?.district || 'Genel'
+      } : {
+        logo: null,
+        description: '',
+        category: category || 'Kahve',
+        brandType: 'Restoran',
+        email: '',
+        address: '',
+        city: location?.city || 'İstanbul',
+        district: location?.district || 'Genel'
+      }
+    });
+
+    console.log('🎨 Banner brandProfile bilgileri:', {
+      logo: newBanner.brandProfile?.logo,
+      description: newBanner.brandProfile?.description,
+      category: newBanner.brandProfile?.category,
+      userLogo: user?.logo
     });
 
     await newBanner.save();
     console.log('Yeni banner veritabanına kaydedildi:', newBanner._id);
+
+    // Kota güncellemesi
+    if (restaurant) {
+      restaurant.codeQuota.used += 1;
+      restaurant.codeQuota.remaining = restaurant.codeQuota.total - restaurant.codeQuota.used;
+      await restaurant.save();
+      console.log('Kota güncellendi:', {
+        total: restaurant.codeQuota.total,
+        used: restaurant.codeQuota.used,
+        remaining: restaurant.codeQuota.remaining
+      });
+    }
 
     // Bildirim ekle (bildirimler tab'ında görünmesi için)
     addNotification(
@@ -714,5 +835,244 @@ console.log('  - DELETE /banners/:id');
 console.log('  - GET /notifications');
 console.log('  - POST /register-token');
 console.log('  - POST /test-onesignal');
+console.log('  - POST /generate-verification-code');
+console.log('  - GET /restaurant-quota/:restaurantId');
+console.log('  - POST /verify-customer-code');
+
+// Doğrulama kodu oluşturma
+router.post('/generate-verification-code', async (req, res) => {
+  try {
+    const { restaurantId } = req.body;
+    
+    if (!restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Restoran ID gerekli!'
+      });
+    }
+
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Restoran bulunamadı!'
+      });
+    }
+
+    // 6 haneli rastgele kod oluştur
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    restaurant.verificationCode = verificationCode;
+    await restaurant.save();
+
+    console.log('Doğrulama kodu oluşturuldu:', {
+      restaurantId,
+      restaurantName: restaurant.name,
+      verificationCode
+    });
+
+    res.json({
+      success: true,
+      message: 'Doğrulama kodu oluşturuldu',
+      data: {
+        verificationCode,
+        restaurantName: restaurant.name
+      }
+    });
+  } catch (error) {
+    console.error('Doğrulama kodu oluşturma hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Doğrulama kodu oluşturulamadı'
+    });
+  }
+});
+
+// Restoran kota bilgilerini getir
+router.get('/restaurant-quota/:restaurantId', async (req, res) => {
+  try {
+    const { restaurantId } = req.params;
+    
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Restoran bulunamadı!'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        restaurantName: restaurant.name,
+        codeQuota: restaurant.codeQuota,
+        hasVerificationCode: !!restaurant.verificationCode
+      }
+    });
+  } catch (error) {
+    console.error('Kota bilgisi alma hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Kota bilgisi alınamadı'
+    });
+  }
+});
+
+// Test için kod oluştur (token gerektirmez)
+router.post('/create-test-code', async (req, res) => {
+  try {
+    const { bannerId, phone } = req.body;
+    
+    if (!bannerId || !phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Banner ID ve telefon numarası gerekli!'
+      });
+    }
+
+    // Test kullanıcısı oluştur veya bul
+    const User = require('../models/User');
+    let user = await User.findOne({ phone });
+    
+    if (!user) {
+      user = new User({
+        name: 'Test User',
+        phone: phone,
+        isActive: true
+      });
+      await user.save();
+    }
+
+    // CodeHistory modelini import et
+    const CodeHistory = require('../models/CodeHistory');
+    
+    // 6 haneli kod oluştur
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Veritabanına kaydet
+    const codeHistory = new CodeHistory({
+      userId: user._id,
+      phone: phone,
+      bannerId: bannerId,
+      code: code
+    });
+    
+    await codeHistory.save();
+    
+    console.log('Test kodu oluşturuldu:', {
+      code,
+      bannerId,
+      phone,
+      userId: user._id
+    });
+
+    res.json({
+      success: true,
+      message: 'Test kodu oluşturuldu',
+      data: {
+        code: code,
+        bannerId: bannerId,
+        phone: phone,
+        expiresIn: '24 saat'
+      }
+    });
+
+  } catch (error) {
+    console.error('Test kodu oluşturma hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Test kodu oluşturma hatası'
+    });
+  }
+});
+
+// Müşteri kodunu doğrula (Dashboard'dan)
+router.post('/verify-customer-code', async (req, res) => {
+  try {
+    const { code, bannerId } = req.body;
+    
+    if (!code || !bannerId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Kod ve banner ID gerekli!'
+      });
+    }
+
+    // CodeHistory modelini import et
+    const CodeHistory = require('../models/CodeHistory');
+    
+    // Kodu ara
+    const codeRecord = await CodeHistory.findOne({
+      bannerId: bannerId,
+      code: code,
+      used: false
+    }).populate('userId', 'phone name');
+
+    if (!codeRecord) {
+      return res.status(400).json({
+        success: false,
+        message: 'Geçersiz kod veya kod zaten kullanılmış!'
+      });
+    }
+
+    // Kodun 24 saat içinde oluşturulup oluşturulmadığını kontrol et
+    const now = new Date();
+    const codeAge = (now - codeRecord.createdAt) / (1000 * 60 * 60); // saat cinsinden
+    
+    if (codeAge > 24) {
+      return res.status(400).json({
+        success: false,
+        message: 'Kodun süresi dolmuş! (24 saat)'
+      });
+    }
+
+    // Kodu kullanılmış olarak işaretle
+    codeRecord.used = true;
+    codeRecord.usedAt = now;
+    await codeRecord.save();
+
+    // Banner'ın istatistiklerini ve kota bilgisini güncelle
+    const banner = await Banner.findById(bannerId);
+    if (banner) {
+      banner.stats.conversions += 1;
+      banner.codeQuota.used += 1;
+      banner.codeQuota.remaining = banner.codeQuota.total - banner.codeQuota.used;
+      await banner.save();
+      
+      console.log('Banner kota güncellendi:', {
+        bannerId: banner._id,
+        total: banner.codeQuota.total,
+        used: banner.codeQuota.used,
+        remaining: banner.codeQuota.remaining
+      });
+    }
+
+    console.log('Müşteri kodu doğrulandı:', {
+      code,
+      bannerId,
+      userId: codeRecord.userId._id,
+      phone: codeRecord.userId.phone
+    });
+
+    res.json({
+      success: true,
+      message: 'Kod başarıyla doğrulandı ve indirim uygulandı!',
+      data: {
+        code: code,
+        bannerId: bannerId,
+        customerPhone: codeRecord.userId.phone,
+        customerName: codeRecord.userId.name,
+        usedAt: now
+      }
+    });
+
+  } catch (error) {
+    console.error('Müşteri kodu doğrulama hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Kod doğrulama hatası'
+    });
+  }
+});
 
 module.exports = router; 

@@ -191,15 +191,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Telefon doğrulaması kontrolü
-    if (!user.phoneVerified) {
-      return res.json({
-        success: false,
-        message: 'Telefon numarası doğrulanmalı',
-        needsVerification: true,
-        phone: user.phone
-      });
-    }
+    // Telefon doğrulaması kontrolü kaldırıldı - login için gerekli değil
 
     // JWT token oluştur
     const token = jwt.sign(

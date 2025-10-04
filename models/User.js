@@ -30,6 +30,14 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  oneSignalUserId: {
+    type: String,
+    default: null
+  },
+  oneSignalExternalId: {
+    type: String,
+    default: null
+  },
   // Marka profil bilgileri
   email: {
     type: String,

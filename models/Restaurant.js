@@ -46,6 +46,24 @@ const restaurantSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  codeQuota: {
+    total: {
+      type: Number,
+      default: 100
+    },
+    used: {
+      type: Number,
+      default: 0
+    },
+    remaining: {
+      type: Number,
+      default: 100
+    }
+  },
+  verificationCode: {
+    type: String,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now

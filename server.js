@@ -52,6 +52,7 @@ app.use('/api/restaurants', require('./routes/restaurants'));
 app.use('/api/banners', require('./routes/banners'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/events', require('./routes/events'));
+app.use('/api/users', require('./routes/users'));
 
 console.log('📋 Kayıtlı route\'lar:');
 console.log('  - /api/auth');
@@ -59,6 +60,7 @@ console.log('  - /api/restaurants');
 console.log('  - /api/banners');
 console.log('  - /api/ai');
 console.log('  - /api/events');
+console.log('  - /api/users');
 
 // Error handling middleware
 app.use((err, req, res, next) => {

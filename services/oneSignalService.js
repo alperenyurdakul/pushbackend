@@ -1,78 +1,105 @@
-const OneSignal = require('onesignal-node');
+const axios = require('axios');
 
 // OneSignal yapılandırması
-const client = new OneSignal.Client({
-  userAuthKey: process.env.ONESIGNAL_USER_AUTH_KEY, // OneSignal User Auth Key
-  app: {
-    appAuthKey: process.env.ONESIGNAL_APP_AUTH_KEY,  // OneSignal App Auth Key
-    appId: process.env.ONESIGNAL_APP_ID              // OneSignal App ID
-  }
+console.log('OneSignal Config:', {
+  appId: process.env.ONESIGNAL_APP_ID,
+  appIdLength: process.env.ONESIGNAL_APP_ID ? process.env.ONESIGNAL_APP_ID.length : 0,
+  appAuthKey: process.env.ONESIGNAL_APP_AUTH_KEY ? 'Set' : 'Not set',
 });
+
+// OneSignal App ID format kontrolü
+const appId = process.env.ONESIGNAL_APP_ID;
+if (!appId || appId.length !== 36) {
+  console.error('OneSignal App ID format hatası! UUID formatında olmalı (36 karakter)');
+  console.error('Mevcut App ID:', appId);
+}
 
 class OneSignalService {
   
-  // Tek kullanıcıya bildirim gönder
-  static async sendToUser(externalUserId, title, message, data = {}) {
-    try {
-      const notification = {
-        headings: { en: title, tr: title },
-        contents: { en: message, tr: message },
-        include_external_user_ids: [externalUserId],
-        data: data,
-        ios_badgeType: 'Increase',
-        ios_badgeCount: 1,
-        android_channel_id: 'default'
-      };
+         // Tek kullanıcıya bildirim gönder
+         static async sendToUser(externalUserId, title, message, data = {}) {
+           try {
+             const notification = {
+               app_id: process.env.ONESIGNAL_APP_ID,
+               headings: { en: title, tr: title },
+               contents: { en: message, tr: message },
+               include_external_user_ids: [externalUserId],
+               data: data
+             };
 
-      const response = await client.createNotification(notification);
-      console.log('OneSignal bildirim gönderildi:', response.body);
-      return response.body;
+      const response = await axios.post('https://api.onesignal.com/notifications', notification, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Key ${process.env.ONESIGNAL_APP_AUTH_KEY}`
+        }
+      });
+      
+      console.log('OneSignal bildirim gönderildi:', response.data);
+      return response.data;
     } catch (error) {
-      console.error('OneSignal bildirim gönderme hatası:', error);
+      console.error('OneSignal bildirim gönderme hatası:', error.response ? error.response.data : error.message);
       throw error;
     }
   }
 
-  // Birden fazla kullanıcıya bildirim gönder
-  static async sendToUsers(externalUserIds, title, message, data = {}) {
-    try {
-      const notification = {
-        headings: { en: title, tr: title },
-        contents: { en: message, tr: message },
-        include_external_user_ids: externalUserIds,
-        data: data,
-        ios_badgeType: 'Increase',
-        ios_badgeCount: 1,
-        android_channel_id: 'default'
-      };
+         // Birden fazla kullanıcıya bildirim gönder
+         static async sendToUsers(externalUserIds, title, message, data = {}) {
+           try {
+             const notification = {
+               app_id: process.env.ONESIGNAL_APP_ID,
+               headings: { en: title, tr: title },
+               contents: { en: message, tr: message },
+               include_external_user_ids: externalUserIds,
+               data: data
+             };
 
-      const response = await client.createNotification(notification);
-      console.log('OneSignal toplu bildirim gönderildi:', response.body);
-      return response.body;
+      const response = await axios.post('https://api.onesignal.com/notifications', notification, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Key ${process.env.ONESIGNAL_APP_AUTH_KEY}`
+        }
+      });
+      
+      console.log('OneSignal toplu bildirim gönderildi:', response.data);
+      return response.data;
     } catch (error) {
-      console.error('OneSignal toplu bildirim gönderme hatası:', error);
+      console.error('OneSignal toplu bildirim gönderme hatası:', error.response ? error.response.data : error.message);
       throw error;
     }
   }
 
-  // Tüm kullanıcılara bildirim gönder
-  static async sendToAll(title, message, data = {}) {
-    try {
-      const notification = {
-        headings: { en: title, tr: title },
-        contents: { en: message, tr: message },
-        included_segments: ['All'],
-        data: data,
-        ios_badgeType: 'Increase',
-        ios_badgeCount: 1,
-        android_channel_id: 'default'
-      };
+         // Tüm kullanıcılara bildirim gönder
+         static async sendToAll(title, message, data = {}) {
+           try {
+             console.log('=== OneSignal Bağlantı Testi ===');
+             console.log('App ID:', process.env.ONESIGNAL_APP_ID);
+             console.log('App Auth Key:', process.env.ONESIGNAL_APP_AUTH_KEY ? process.env.ONESIGNAL_APP_AUTH_KEY.substring(0, 30) + '...' : 'Not set');
+             
+             const notification = {
+               app_id: process.env.ONESIGNAL_APP_ID,
+               headings: { en: title, tr: title },
+               contents: { en: message, tr: message },
+               included_segments: ['All'],
+               data: data
+             };
 
-      const response = await client.createNotification(notification);
-      console.log('OneSignal genel bildirim gönderildi:', response.body);
-      return response.body;
+      console.log('OneSignal notification payload:', JSON.stringify(notification, null, 2));
+      console.log('OneSignal API URL:', 'https://api.onesignal.com/notifications');
+      console.log('Authorization header:', `key ${process.env.ONESIGNAL_APP_AUTH_KEY}`);
+
+      const response = await axios.post('https://api.onesignal.com/notifications', notification, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Key ${process.env.ONESIGNAL_APP_AUTH_KEY}`
+        }
+      });
+      
+      console.log('✅ OneSignal genel bildirim gönderildi:', response.data);
+      return response.data;
     } catch (error) {
-      console.error('OneSignal genel bildirim gönderme hatası:', error);
+      console.error('❌ OneSignal genel bildirim gönderme hatası:', error.response ? error.response.data : error.message);
+      console.error('Error status:', error.response ? error.response.status : 'No status');
+      console.error('Error headers:', error.response ? error.response.headers : 'No headers');
       throw error;
     }
   }
@@ -80,7 +107,8 @@ class OneSignalService {
   // Filtreli kullanıcılara bildirim gönder (etiketlere göre)
   static async sendToSegment(filters, title, message, data = {}) {
     try {
-      const notification = new OneSignal.Notification({
+      const notification = {
+        app_id: process.env.ONESIGNAL_APP_ID,
         headings: { en: title, tr: title },
         contents: { en: message, tr: message },
         filters: filters,
@@ -88,13 +116,19 @@ class OneSignalService {
         ios_badgeType: 'Increase',
         ios_badgeCount: 1,
         android_channel_id: 'default'
-      });
+      };
 
-      const response = await client.sendNotification(notification);
-      console.log('OneSignal segment bildirim gönderildi:', response.body);
-      return response.body;
+      const response = await axios.post('https://api.onesignal.com/notifications', notification, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Key ${process.env.ONESIGNAL_APP_AUTH_KEY}`
+        }
+      });
+      
+      console.log('OneSignal segment bildirim gönderildi:', response.data);
+      return response.data;
     } catch (error) {
-      console.error('OneSignal segment bildirim gönderme hatası:', error);
+      console.error('OneSignal segment bildirim gönderme hatası:', error.response ? error.response.data : error.message);
       throw error;
     }
   }
@@ -155,7 +189,8 @@ class OneSignalService {
   // Belirli konumdaki kullanıcılara bildirim (gelecekte geliştirilebilir)
   static async sendToLocation(latitude, longitude, radius, title, message, data = {}) {
     try {
-      const notification = new OneSignal.Notification({
+      const notification = {
+        app_id: process.env.ONESIGNAL_APP_ID,
         headings: { en: title, tr: title },
         contents: { en: message, tr: message },
         filters: [
@@ -170,13 +205,19 @@ class OneSignalService {
         ios_badgeType: 'Increase',
         ios_badgeCount: 1,
         android_channel_id: 'default'
-      });
+      };
 
-      const response = await client.sendNotification(notification);
-      console.log('OneSignal konum-bazlı bildirim gönderildi:', response.body);
-      return response.body;
+      const response = await axios.post('https://api.onesignal.com/notifications', notification, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Key ${process.env.ONESIGNAL_APP_AUTH_KEY}`
+        }
+      });
+      
+      console.log('OneSignal konum-bazlı bildirim gönderildi:', response.data);
+      return response.data;
     } catch (error) {
-      console.error('OneSignal konum-bazlı bildirim gönderme hatası:', error);
+      console.error('OneSignal konum-bazlı bildirim gönderme hatası:', error.response ? error.response.data : error.message);
       throw error;
     }
   }
@@ -184,14 +225,15 @@ class OneSignalService {
   // Bildirim geçmişini al
   static async getNotificationHistory(limit = 50, offset = 0) {
     try {
-      const response = await client.viewNotifications({
-        limit: limit,
-        offset: offset
+      const response = await axios.get(`https://api.onesignal.com/notifications?app_id=${process.env.ONESIGNAL_APP_ID}&limit=${limit}&offset=${offset}`, {
+        headers: {
+          'Authorization': `Key ${process.env.ONESIGNAL_APP_AUTH_KEY}`
+        }
       });
       console.log('OneSignal bildirim geçmişi alındı');
-      return response.body;
+      return response.data;
     } catch (error) {
-      console.error('OneSignal bildirim geçmişi alma hatası:', error);
+      console.error('OneSignal bildirim geçmişi alma hatası:', error.response ? error.response.data : error.message);
       throw error;
     }
   }
@@ -199,11 +241,15 @@ class OneSignalService {
   // Tek bir bildirimin durumunu kontrol et
   static async getNotificationStatus(notificationId) {
     try {
-      const response = await client.viewNotification(notificationId);
+      const response = await axios.get(`https://api.onesignal.com/notifications/${notificationId}?app_id=${process.env.ONESIGNAL_APP_ID}`, {
+        headers: {
+          'Authorization': `Key ${process.env.ONESIGNAL_APP_AUTH_KEY}`
+        }
+      });
       console.log('OneSignal bildirim durumu alındı:', notificationId);
-      return response.body;
+      return response.data;
     } catch (error) {
-      console.error('OneSignal bildirim durumu alma hatası:', error);
+      console.error('OneSignal bildirim durumu alma hatası:', error.response ? error.response.data : error.message);
       throw error;
     }
   }
@@ -211,11 +257,15 @@ class OneSignalService {
   // Uygulama istatistiklerini al
   static async getAppStats() {
     try {
-      const response = await client.viewApps();
+      const response = await axios.get(`https://api.onesignal.com/apps/${process.env.ONESIGNAL_APP_ID}`, {
+        headers: {
+          'Authorization': `Key ${process.env.ONESIGNAL_APP_AUTH_KEY}`
+        }
+      });
       console.log('OneSignal uygulama istatistikleri alındı');
-      return response.body;
+      return response.data;
     } catch (error) {
-      console.error('OneSignal uygulama istatistikleri alma hatası:', error);
+      console.error('OneSignal uygulama istatistikleri alma hatası:', error.response ? error.response.data : error.message);
       throw error;
     }
   }
@@ -223,11 +273,15 @@ class OneSignalService {
   // Kullanıcı segmentlerini al
   static async getSegments() {
     try {
-      const response = await client.viewSegments();
+      const response = await axios.get(`https://api.onesignal.com/apps/${process.env.ONESIGNAL_APP_ID}/segments`, {
+        headers: {
+          'Authorization': `Key ${process.env.ONESIGNAL_APP_AUTH_KEY}`
+        }
+      });
       console.log('OneSignal segmentler alındı');
-      return response.body;
+      return response.data;
     } catch (error) {
-      console.error('OneSignal segment alma hatası:', error);
+      console.error('OneSignal segment alma hatası:', error.response ? error.response.data : error.message);
       throw error;
     }
   }

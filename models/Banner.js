@@ -112,6 +112,32 @@ const bannerSchema = new mongoose.Schema({
     enum: ['draft', 'active', 'paused', 'completed', 'archived'],
     default: 'draft'
   },
+  // Kod kotası bilgileri
+  codeQuota: {
+    total: {
+      type: Number,
+      default: 10
+    },
+    used: {
+      type: Number,
+      default: 0
+    },
+    remaining: {
+      type: Number,
+      default: 10
+    }
+  },
+  // Marka profil bilgileri
+  brandProfile: {
+    logo: String,
+    description: String,
+    category: String,
+    brandType: String,
+    email: String,
+    address: String,
+    city: String,
+    district: String
+  },
   createdAt: {
     type: Date,
     default: Date.now
