@@ -2,10 +2,10 @@ const OneSignal = require('onesignal-node');
 
 // OneSignal yapılandırması
 const client = new OneSignal.Client({
-  userAuthKey: process.env.ONESIGNAL_USER_AUTH_KEY || 'os_v2_app_xv6pexjxm5ahlkcnh6jtfw4uaysjwjo7rmlen35t2y2jnizajtbfvvbm27o2mdmbq2l5nsx7khz7an3xzmx35hbupuoydek2wwa7ykq', // OneSignal User Auth Key
+  userAuthKey: process.env.ONESIGNAL_USER_AUTH_KEY, // OneSignal User Auth Key
   app: {
-    appAuthKey: process.env.ONESIGNAL_APP_AUTH_KEY || 'os_v2_app_xv6pexjxm5ahlkcnh6jtfw4uaysjwjo7rmlen35t2y2jnizajtbfvvbm27o2mdmbq2l5nsx7khz7an3xzmx35hbupuoydek2wwa7ykq',  // OneSignal App Auth Key
-    appId: process.env.ONESIGNAL_APP_ID || 'bd7cf25d-3767-4075-a84d-3f9332db9406'              // OneSignal App ID
+    appAuthKey: process.env.ONESIGNAL_APP_AUTH_KEY,  // OneSignal App Auth Key
+    appId: process.env.ONESIGNAL_APP_ID              // OneSignal App ID
   }
 });
 

@@ -91,7 +91,7 @@ router.get('/check-push-tokens', async (req, res) => {
 });
 
 // JWT secret key
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Basit kullanıcı kayıt (sadece telefon + şifre + isim)
 router.post('/register', async (req, res) => {
@@ -515,12 +515,7 @@ router.post('/update-phone-verified', async (req, res) => {
 // 6 haneli kod oluştur (günde bir kez)
 router.post('/generate-code', async (req, res) => {
   try {
-    console.log('=== GENERATE CODE İSTEĞİ ===');
-    console.log('Body:', req.body);
-    console.log('Headers:', req.headers);
-    console.log('URL:', req.url);
-    console.log('Method:', req.method);
-    console.log('=======================');
+    // Debug logları kaldırıldı - güvenlik için
     
     const { phone, bannerId } = req.body;
     

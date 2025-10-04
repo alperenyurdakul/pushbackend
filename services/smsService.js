@@ -5,10 +5,10 @@ const twilio = require('twilio');
 class SMSService {
   // Twilio client'ı initialize et
   static getTwilioClient() {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID || 'YOUR_ACCOUNT_SID';
-    const authToken = process.env.TWILIO_AUTH_TOKEN || 'YOUR_AUTH_TOKEN';
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
     
-    if (accountSid === 'YOUR_ACCOUNT_SID' || authToken === 'YOUR_AUTH_TOKEN') {
+    if (!accountSid || !authToken) {
       console.log('⚠️ Twilio credentials not set, using mock SMS');
       return null;
     }
@@ -74,10 +74,8 @@ class SMSService {
           channel: 'sms'
         });
 
-      console.log(`📱 SMS Gönderildi (Twilio Verify) - Telefon: ${formattedPhone}, SID: ${verification.sid}`);
+      console.log(`📱 SMS Gönderildi (Twilio Verify) - SID: ${verification.sid}`);
       console.log(`📱 Verification Status: ${verification.status}`);
-      console.log(`📱 Service SID: ${serviceSid}`);
-      console.log(`📱 Test Kodu: ${code} (SMS'te farklı kod gelecek)`);
       
       // Verification detaylarını kontrol et
       if (verification.status === 'pending') {
