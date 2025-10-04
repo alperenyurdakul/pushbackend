@@ -1,0 +1,135 @@
+const mongoose = require('mongoose');
+
+const bannerSchema = new mongoose.Schema({
+  restaurant: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Restaurant',
+    required: true
+  },
+  title: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  description: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  // AI tarafından oluşturulan banner metni
+  aiGeneratedText: {
+    type: String,
+    required: true
+  },
+  // Banner görseli (AI tarafından oluşturulacak)
+  bannerImage: {
+    type: String, // URL to generated banner image
+    default: null
+  },
+  // Kampanya detayları
+  campaign: {
+    startDate: {
+      type: Date,
+      required: true
+    },
+    endDate: {
+      type: Date,
+      required: true
+    },
+    startTime: {
+      type: String, // "18:00" formatında
+      required: true
+    },
+    endTime: {
+      type: String, // "23:00" formatında
+      required: true
+    },
+    daysOfWeek: [{
+      type: String,
+      enum: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+    }],
+    isActive: {
+      type: Boolean,
+      default: true
+    }
+  },
+  // Hedef kitle ve koşullar
+  targetAudience: {
+    ageRange: {
+      min: Number,
+      max: Number
+    },
+    gender: {
+      type: String,
+      enum: ['all', 'male', 'female']
+    },
+    location: {
+      radius: Number, // km cinsinden
+      coordinates: {
+        lat: Number,
+        lng: Number
+      }
+    }
+  },
+  // Banner lokasyon bilgileri
+  bannerLocation: {
+    city: String,
+    district: String,
+    address: String
+  },
+  // Banner kategorisi
+  category: {
+    type: String,
+    enum: ['Kahve', 'Yiyecek', 'Bar/Pub', 'Giyim', 'Kuaför'],
+    default: 'Kahve'
+  },
+  // Banner istatistikleri
+  stats: {
+    views: {
+      type: Number,
+      default: 0
+    },
+    clicks: {
+      type: Number,
+      default: 0
+    },
+    conversions: {
+      type: Number,
+      default: 0
+    }
+  },
+  // AI model bilgileri
+  aiModel: {
+    model: String,
+    version: String,
+    generationDate: {
+      type: Date,
+      default: Date.now
+    }
+  },
+  status: {
+    type: String,
+    enum: ['draft', 'active', 'paused', 'completed', 'archived'],
+    default: 'draft'
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+// Update timestamp on save
+bannerSchema.pre('save', function(next) {
+  this.updatedAt = Date.now();
+  next();
+});
+
+// Index for better query performance
+bannerSchema.index({ restaurant: 1, 'campaign.isActive': 1 });
+bannerSchema.index({ 'campaign.startDate': 1, 'campaign.endDate': 1 });
+
+module.exports = mongoose.model('Banner', bannerSchema); 
