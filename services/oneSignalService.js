@@ -285,6 +285,32 @@ class OneSignalService {
       throw error;
     }
   }
+
+  // Yeni banner bildirimi gönder
+  static async sendNewBannerNotification(banner) {
+    try {
+      console.log('=== Yeni Banner OneSignal Bildirimi ===');
+      console.log('Banner ID:', banner._id);
+      console.log('Banner Title:', banner.title);
+      console.log('Restaurant:', banner.restaurant?.name);
+      
+      const title = '🎉 Yeni Kampanya!';
+      const message = `${banner.restaurant?.name || 'Restoran'} - ${banner.title}`;
+      
+      const result = await this.sendToAll(title, message, {
+        type: 'new_banner',
+        bannerId: banner._id.toString(),
+        restaurantName: banner.restaurant?.name,
+        timestamp: new Date().toISOString()
+      });
+      
+      console.log('✅ Yeni banner bildirimi gönderildi:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Yeni banner bildirimi gönderilemedi:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = OneSignalService;

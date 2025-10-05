@@ -514,24 +514,22 @@ router.post('/generate-banner', async (req, res) => {
       }
     );
 
-    // OneSignal ile push notification gönder
+    // Expo Push Notification gönder
     try {
-      console.log('OneSignal bildirimi gönderiliyor...');
-      await OneSignalService.sendNewBannerNotification({
-        _id: newBanner._id,
-        title: newBanner.title,
-        restaurant: restaurant
-      });
-      console.log('OneSignal bildirimi gönderildi');
-    } catch (oneSignalError) {
-      console.error('OneSignal bildirimi gönderilemedi:', oneSignalError);
-      
-      // Fallback: Expo push notification gönder (sadece bir kere)
-      console.log('Expo push notification fallback kullanılıyor...');
+      console.log('📱 Expo push notification gönderiliyor...');
       await sendPushNotificationToAllUsers(
-        `${campaignDescription}`,
-        { bannerId: newBanner._id.toString() }
+        `🎉 Yeni Kampanya!`,
+        `${restaurant.name} - ${campaignDescription}`,
+        { 
+          type: 'new_banner',
+          bannerId: newBanner._id.toString(),
+          restaurantName: restaurant.name,
+          timestamp: new Date().toISOString()
+        }
       );
+      console.log('✅ Expo push notification gönderildi');
+    } catch (expoError) {
+      console.error('❌ Expo push notification gönderilemedi:', expoError);
     }
 
     res.json({

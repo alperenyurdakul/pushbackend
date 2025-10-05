@@ -79,6 +79,6 @@ app.use('*', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server ${PORT} portunda çalışıyor`);
   console.log(`📱 API: http://localhost:${PORT}`);
-  console.log(`🌐 Network API: http://172.20.10.4:${PORT}`);
+  console.log(`🌐 Network API: http://192.168.66.156:${PORT}`);
   console.log(`🗄️  MongoDB bağlantısı aktif`);
 });
