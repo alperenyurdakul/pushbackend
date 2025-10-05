@@ -3,6 +3,8 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const path = require('path'); // Added for static files
+const https = require('https');
+const fs = require('fs');
 
 // Environment variables
 dotenv.config();
@@ -19,7 +21,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database connection - MongoDB
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/restaurant_banners';
+const MONGODB_URI = process.env.MONGODB_URI;
 
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
@@ -76,9 +78,26 @@ app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route bulunamadı!' });
 });
 
+// HTTP Server
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server ${PORT} portunda çalışıyor`);
+  console.log(`🚀 HTTP Server ${PORT} portunda çalışıyor`);
   console.log(`📱 API: http://localhost:${PORT}`);
-  console.log(`🌐 Network API: http://192.168.66.156:${PORT}`);
+  console.log(`🌐 Network API: http://13.48.132.212:${PORT}`);
   console.log(`🗄️  MongoDB bağlantısı aktif`);
 });
+
+// HTTPS Server
+try {
+  const httpsOptions = {
+    key: fs.readFileSync('key.pem'),
+    cert: fs.readFileSync('cert.pem')
+  };
+  
+  https.createServer(httpsOptions, app).listen(443, '0.0.0.0', () => {
+    console.log(`🔒 HTTPS Server 443 portunda çalışıyor`);
+    console.log(`🌐 HTTPS API: https://13.48.132.212:443`);
+  });
+} catch (error) {
+  console.log('⚠️  HTTPS server başlatılamadı:', error.message);
+  console.log('📝 SSL sertifikası bulunamadı, sadece HTTP çalışıyor');
+}
