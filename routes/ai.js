@@ -514,6 +514,24 @@ router.post('/generate-banner', async (req, res) => {
       }
     );
 
+    // OneSignal Push Notification gönder
+    try {
+      console.log('📱 OneSignal push notification gönderiliyor...');
+      const oneSignalResult = await OneSignalService.sendToAll(
+        `🎉 Yeni Kampanya!`,
+        `${restaurant.name} - ${campaignDescription}`,
+        { 
+          type: 'new_banner',
+          bannerId: newBanner._id.toString(),
+          restaurantName: restaurant.name,
+          timestamp: new Date().toISOString()
+        }
+      );
+      console.log('✅ OneSignal push notification gönderildi:', oneSignalResult);
+    } catch (oneSignalError) {
+      console.error('❌ OneSignal push notification gönderilemedi:', oneSignalError);
+    }
+
     // Expo Push Notification gönder
     try {
       console.log('📱 Expo push notification gönderiliyor...');
