@@ -64,6 +64,8 @@ console.log('  - /api/ai');
 console.log('  - /api/events');
 console.log('  - /api/users');
 
+
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -87,17 +89,19 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 // HTTPS Server
+/*
 try {
   const httpsOptions = {
     key: fs.readFileSync('key.pem'),
     cert: fs.readFileSync('cert.pem')
   };
   
-  https.createServer(httpsOptions, app).listen(443, '0.0.0.0', () => {
-    console.log(`🔒 HTTPS Server 443 portunda çalışıyor`);
-    console.log(`🌐 HTTPS API: https://13.48.132.212:443`);
+  https.createServer(httpsOptions, app).listen(8443, '0.0.0.0', () => {
+    console.log(`🔒 HTTPS Server 8443 portunda çalışıyor`);
+    console.log(`🌐 HTTPS API: https://13.48.132.212:8443`);
   });
 } catch (error) {
   console.log('⚠️  HTTPS server başlatılamadı:', error.message);
   console.log('📝 SSL sertifikası bulunamadı, sadece HTTP çalışıyor');
 }
+  */
