@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const uploadS3 = require('../middleware/uploadS3');
 const User = require('../models/User');
 const SMSService = require('../services/smsService');
 
@@ -142,7 +143,7 @@ router.post('/register', async (req, res) => {
       success: true,
       message: 'Kullanıcı başarıyla kaydedildi!',
       data: {
-        user: {
+      user: {
           id: user._id,
           phone: user.phone,
           name: user.name,
@@ -262,8 +263,8 @@ router.post('/update-push-token', async (req, res) => {
   }
 });
 
-// Profil güncelleme endpoint'i
-router.put('/update-profile', upload.single('logo'), async (req, res) => {
+// Profil güncelleme endpoint'i (S3'e yükler)
+router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
   try {
     console.log('=== PROFİL GÜNCELLEME İSTEĞİ ===');
     console.log('Headers:', req.headers);
@@ -292,13 +293,7 @@ router.put('/update-profile', upload.single('logo'), async (req, res) => {
       });
     }
 
-    // Eski logo dosyasını sil (varsa)
-    if (user.logo && req.file) {
-      const oldLogoPath = path.join('uploads/logos', user.logo);
-      if (fs.existsSync(oldLogoPath)) {
-        fs.unlinkSync(oldLogoPath);
-      }
-    }
+    // Diskten silme yok; S3 kullanılıyor
 
     // Profil bilgilerini güncelle
     const updateData = {
@@ -316,7 +311,10 @@ router.put('/update-profile', upload.single('logo'), async (req, res) => {
 
     // Logo güncellenmişse ekle
     if (req.file) {
-      updateData.logo = req.file.filename;
+      const key = req.file.key || req.file.location || req.file.path;
+      const base = process.env.CDN_BASE_URL || `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com`;
+      const url = req.file.location || `${base}/${key}`;
+      updateData.logo = url;
     }
 
     // Kullanıcıyı güncelle
