@@ -68,18 +68,61 @@ class OneSignalService {
     }
   }
 
-         // Tüm kullanıcılara bildirim gönder
-         static async sendToAll(title, message, data = {}) {
+         // Tüm kullanıcılara bildirim gönder (FİLTRELİ)
+         static async sendToAll(title, message, data = {}, bannerCity = null, bannerCategory = null) {
            try {
              console.log('=== OneSignal Bağlantı Testi ===');
              console.log('App ID:', process.env.ONESIGNAL_APP_ID);
              console.log('App Auth Key:', process.env.ONESIGNAL_APP_AUTH_KEY ? process.env.ONESIGNAL_APP_AUTH_KEY.substring(0, 30) + '...' : 'Not set');
              
+             // Filtrelenmiş kullanıcıları bul
+             const User = require('../models/User');
+             const query = {
+               userType: 'customer',
+               oneSignalExternalId: { $exists: true, $ne: null }
+             };
+             
+             // Şehir filtresi
+             if (bannerCity) {
+               query['preferences.city'] = bannerCity;
+             }
+             
+             // Kategori filtresi
+             if (bannerCategory) {
+               query['preferences.categories'] = bannerCategory;
+             }
+             
+             console.log('🔍 OneSignal filtresi:', {
+               bannerCity,
+               bannerCategory,
+               query
+             });
+             
+             const users = await User.find(query);
+             
+             if (users.length === 0) {
+               console.log('❌ OneSignal: Bildirim gönderilecek kullanıcı bulunamadı (filtre uygulandı)');
+               return { success: false, message: 'No filtered users found' };
+             }
+             
+             const externalUserIds = users
+               .map(user => user.oneSignalExternalId)
+               .filter(id => id && id.trim() !== '');
+             
+             if (externalUserIds.length === 0) {
+               console.log('❌ OneSignal: Geçerli external user ID bulunamadı');
+               return { success: false, message: 'No valid external IDs' };
+             }
+             
+             console.log(`📱 OneSignal: ${externalUserIds.length} kullanıcıya bildirim gönderiliyor`);
+             console.log(`📍 Şehir filtresi: ${bannerCity || 'Yok'}`);
+             console.log(`🏷️ Kategori filtresi: ${bannerCategory || 'Yok'}`);
+             
              const notification = {
                app_id: process.env.ONESIGNAL_APP_ID,
                headings: { en: title, tr: title },
                contents: { en: message, tr: message },
-               included_segments: ['All'],
+               include_external_user_ids: externalUserIds,
                data: data
              };
 

@@ -536,9 +536,12 @@ router.post('/generate-banner', async (req, res) => {
       }
     );
 
-    // OneSignal Push Notification gönder
+    // OneSignal Push Notification gönder (şehir ve kategori filtreli)
     try {
-      console.log('📱 OneSignal push notification gönderiliyor...');
+      console.log('📱 OneSignal push notification gönderiliyor (filtreli)...');
+      const bannerCity = bannerLocation?.city || null;
+      const bannerCategory = category || null;
+      
       const oneSignalResult = await OneSignalService.sendToAll(
         `🎉 Yeni Kampanya!`,
         `${restaurant.name} - ${campaignDescription}`,
@@ -547,7 +550,9 @@ router.post('/generate-banner', async (req, res) => {
           bannerId: newBanner._id.toString(),
           restaurantName: restaurant.name,
           timestamp: new Date().toISOString()
-        }
+        },
+        bannerCity,  // Şehir filtresi
+        bannerCategory  // Kategori filtresi
       );
       console.log('✅ OneSignal push notification gönderildi:', oneSignalResult);
     } catch (oneSignalError) {
