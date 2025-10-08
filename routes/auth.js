@@ -164,7 +164,7 @@ router.post('/register', async (req, res) => {
       success: true,
       message: 'Kullanıcı başarıyla kaydedildi!',
       data: {
-        user: {
+      user: {
           id: user._id,
           phone: user.phone,
           name: user.name,
@@ -248,15 +248,15 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Push token güncelleme
+// Push token güncelleme (Expo ve OneSignal)
 router.post('/update-push-token', async (req, res) => {
   try {
-    const { phone, expoPushToken } = req.body;
+    const { phone, expoPushToken, oneSignalExternalId } = req.body;
     
-    if (!phone || !expoPushToken) {
+    if (!phone) {
       return res.status(400).json({
         success: false,
-        message: 'Telefon ve push token gerekli'
+        message: 'Telefon gerekli'
       });
     }
 
@@ -268,14 +268,27 @@ router.post('/update-push-token', async (req, res) => {
       });
     }
 
-    user.expoPushToken = expoPushToken;
-    await user.save();
+    // Expo push token'ı güncelle
+    if (expoPushToken) {
+      user.expoPushToken = expoPushToken;
+      console.log(`✅ Expo push token güncellendi: ${phone}`);
+    }
 
-    console.log(`Push token güncellendi: ${phone}`);
+    // OneSignal external ID'yi güncelle
+    if (oneSignalExternalId) {
+      user.oneSignalExternalId = oneSignalExternalId;
+      console.log(`✅ OneSignal external ID güncellendi: ${phone} -> ${oneSignalExternalId}`);
+    }
+
+    await user.save();
 
     res.json({
       success: true,
-      message: 'Push token güncellendi'
+      message: 'Push token güncellendi',
+      data: {
+        expoPushToken: user.expoPushToken,
+        oneSignalExternalId: user.oneSignalExternalId
+      }
     });
 
   } catch (error) {
