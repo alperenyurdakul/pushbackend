@@ -599,4 +599,66 @@ router.post('/generate-code', async (req, res) => {
   }
 });
 
+// Marka profilinden logo çekme endpoint'i
+router.get('/brand-logo/:restaurantName', async (req, res) => {
+  try {
+    const { restaurantName } = req.params;
+    
+    console.log('🔍 Marka logo çekiliyor:', restaurantName);
+    
+    // Önce User modelinde restaurant.name ile ara
+    const user = await User.findOne({ 
+      'restaurant.name': { $regex: new RegExp(restaurantName, 'i') }
+    });
+    
+    console.log('🔍 User arama sonucu:', {
+      restaurantName,
+      userFound: !!user,
+      userId: user?._id,
+      userName: user?.name,
+      userLogo: user?.logo,
+      restaurantName: user?.restaurant?.name
+    });
+    
+    if (user && user.logo) {
+      console.log('✅ User modelinde logo bulundu:', user.logo);
+      return res.json({
+        success: true,
+        logo: user.logo,
+        brandName: user.name || user.restaurant?.name,
+        source: 'user'
+      });
+    }
+    
+    // User'da bulunamazsa Restaurant modelinde ara
+    const Restaurant = require('../models/Restaurant');
+    const restaurant = await Restaurant.findOne({ 
+      name: { $regex: new RegExp(restaurantName, 'i') }
+    });
+    
+    if (restaurant && restaurant.logo) {
+      console.log('✅ Restaurant modelinde logo bulundu:', restaurant.logo);
+      return res.json({
+        success: true,
+        logo: restaurant.logo,
+        brandName: restaurant.name,
+        source: 'restaurant'
+      });
+    }
+    
+    console.log('❌ Logo bulunamadı:', restaurantName);
+    res.json({
+      success: false,
+      message: 'Logo bulunamadı'
+    });
+    
+  } catch (error) {
+    console.error('Marka logo çekme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Sunucu hatası'
+    });
+  }
+});
+
 module.exports = router; 

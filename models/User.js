@@ -78,6 +78,16 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  restaurant: {
+    name: {
+      type: String,
+      default: null
+    },
+    type: {
+      type: String,
+      default: 'restaurant'
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now
