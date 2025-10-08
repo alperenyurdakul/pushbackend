@@ -38,6 +38,18 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Kullanıcı tercihleri (müşteriler için)
+  preferences: {
+    city: {
+      type: String,
+      default: null,
+      trim: true
+    },
+    categories: [{
+      type: String,
+      enum: ['Kahve', 'Yiyecek', 'Bar/Pub', 'Giyim', 'Kuaför']
+    }]
+  },
   // Marka profil bilgileri
   email: {
     type: String,

@@ -661,4 +661,56 @@ router.get('/brand-logo/:restaurantName', async (req, res) => {
   }
 });
 
+// Kullanıcı tercihlerini güncelleme (şehir ve kategoriler)
+router.put('/update-preferences', async (req, res) => {
+  try {
+    const { phone, city, categories } = req.body;
+    
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Telefon numarası gerekli'
+      });
+    }
+    
+    const user = await User.findOne({ phone });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı'
+      });
+    }
+    
+    // Tercihleri güncelle
+    user.preferences = {
+      city: city || user.preferences?.city,
+      categories: categories || user.preferences?.categories || []
+    };
+    
+    await user.save();
+    
+    console.log('✅ Kullanıcı tercihleri güncellendi:', {
+      phone,
+      city,
+      categories
+    });
+    
+    res.json({
+      success: true,
+      message: 'Tercihler güncellendi',
+      data: {
+        city: user.preferences.city,
+        categories: user.preferences.categories
+      }
+    });
+    
+  } catch (error) {
+    console.error('Tercih güncelleme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Sunucu hatası'
+    });
+  }
+});
+
 module.exports = router; 

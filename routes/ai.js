@@ -93,14 +93,36 @@ async function sendPushNotification(title, body, data = {}) {
   }
 }
 
-// Tüm kullanıcılara push notification gönderme fonksiyonu
-async function sendPushNotificationToAllUsers(title, body, data = {}) {
+// Filtrelenmiş kullanıcılara push notification gönderme fonksiyonu
+async function sendPushNotificationToAllUsers(title, body, data = {}, bannerCity = null, bannerCategory = null) {
   try {
-    // Tüm kullanıcıları getir
-    const users = await User.find({});
+    // Filtreleme için sorgu oluştur
+    const query = {
+      userType: 'customer', // Sadece müşteriler
+      expoPushToken: { $exists: true, $ne: null } // Push token'ı olan kullanıcılar
+    };
+    
+    // Şehir filtresi
+    if (bannerCity) {
+      query['preferences.city'] = bannerCity;
+    }
+    
+    // Kategori filtresi
+    if (bannerCategory) {
+      query['preferences.categories'] = bannerCategory;
+    }
+    
+    console.log('🔍 Bildirim filtresi:', {
+      bannerCity,
+      bannerCategory,
+      query
+    });
+    
+    // Filtrelenmiş kullanıcıları getir
+    const users = await User.find(query);
     
     if (users.length === 0) {
-      console.log('Bildirim gönderilecek kullanıcı bulunamadı');
+      console.log('❌ Bildirim gönderilecek kullanıcı bulunamadı (filtre uygulandı)');
       return;
     }
 
@@ -110,13 +132,13 @@ async function sendPushNotificationToAllUsers(title, body, data = {}) {
       .filter(token => token && token.trim() !== ''))];
 
     if (pushTokens.length === 0) {
-      console.log('Geçerli push token bulunamadı');
+      console.log('❌ Geçerli push token bulunamadı');
       return;
     }
 
-    console.log(`Push notification gönderiliyor: ${pushTokens.length} token'a`);
-    console.log('Push tokens:', pushTokens);
-    console.log('Message:', { title, body, data });
+    console.log(`📱 Push notification gönderiliyor: ${pushTokens.length} token'a`);
+    console.log(`📍 Şehir filtresi: ${bannerCity || 'Yok'}`);
+    console.log(`🏷️ Kategori filtresi: ${bannerCategory || 'Yok'}`);
 
     // Expo push notification gönder
     const message = {
@@ -136,11 +158,11 @@ async function sendPushNotificationToAllUsers(title, body, data = {}) {
       },
     });
 
-    console.log(`Push notification gönderildi: ${pushTokens.length} kullanıcıya`);
+    console.log(`✅ Push notification gönderildi: ${pushTokens.length} kullanıcıya`);
     console.log('Expo response:', response.data);
     
   } catch (error) {
-    console.error('Push notification gönderme hatası:', error);
+    console.error('❌ Push notification gönderme hatası:', error);
   }
 }
 
@@ -532,9 +554,12 @@ router.post('/generate-banner', async (req, res) => {
       console.error('❌ OneSignal push notification gönderilemedi:', oneSignalError);
     }
 
-    // Expo Push Notification gönder
+    // Expo Push Notification gönder (şehir ve kategori filtreli)
     try {
-      console.log('📱 Expo push notification gönderiliyor...');
+      console.log('📱 Expo push notification gönderiliyor (filtreli)...');
+      const bannerCity = bannerLocation?.city || null;
+      const bannerCategory = category || null;
+      
       await sendPushNotificationToAllUsers(
         `🎉 Yeni Kampanya!`,
         `${restaurant.name} - ${campaignDescription}`,
@@ -543,7 +568,9 @@ router.post('/generate-banner', async (req, res) => {
           bannerId: newBanner._id.toString(),
           restaurantName: restaurant.name,
           timestamp: new Date().toISOString()
-        }
+        },
+        bannerCity,  // Şehir filtresi
+        bannerCategory  // Kategori filtresi
       );
       console.log('✅ Expo push notification gönderildi');
     } catch (expoError) {
