@@ -574,7 +574,7 @@ router.post('/generate-banner', async (req, res) => {
     // OneSignal Push Notification gönder (şehir ve kategori filtreli)
     try {
       console.log('📱 OneSignal push notification gönderiliyor (filtreli)...');
-      const bannerCity = bannerLocation?.city || null;
+      const bannerCity = newBanner.bannerLocation?.city || null;
       const bannerCategory = category || null;
       
       const oneSignalResult = await OneSignalService.sendToAll(
@@ -597,7 +597,7 @@ router.post('/generate-banner', async (req, res) => {
     // Expo Push Notification gönder (şehir ve kategori filtreli)
     try {
       console.log('📱 Expo push notification gönderiliyor (filtreli)...');
-      const bannerCity = bannerLocation?.city || null;
+      const bannerCity = newBanner.bannerLocation?.city || null;
       const bannerCategory = category || null;
       
       await sendPushNotificationToAllUsers(
