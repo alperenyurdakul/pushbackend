@@ -104,12 +104,20 @@ router.post('/register', async (req, res) => {
     console.log('Method:', req.method);
     console.log('=======================');
     
-    const { phone, password, name, userType } = req.body;
+    const { phone, password, name, userType, category } = req.body;
 
     if (!phone || !password || !name) {
       return res.status(400).json({
         success: false,
         message: 'Telefon, şifre ve isim gerekli!'
+      });
+    }
+
+    // Marka kayıtlarında kategori zorunlu
+    if (userType === 'brand' && !category) {
+      return res.status(400).json({
+        success: false,
+        message: 'Marka kayıtları için kategori seçimi zorunludur!'
       });
     }
 
@@ -127,7 +135,12 @@ router.post('/register', async (req, res) => {
       phone,
       password,
       name,
-      userType: userType || 'customer'
+      userType: userType || 'customer',
+      category: category || 'Kahve', // Kategori kayıt sırasında belirlenir
+      restaurant: {
+        name: name, // Restaurant adı marka adıyla aynı
+        type: 'restaurant'
+      }
     });
 
     await user.save();
@@ -143,11 +156,13 @@ router.post('/register', async (req, res) => {
       success: true,
       message: 'Kullanıcı başarıyla kaydedildi!',
       data: {
-      user: {
+        user: {
           id: user._id,
           phone: user.phone,
           name: user.name,
-          userType: user.userType
+          userType: user.userType,
+          category: user.category,
+          restaurant: user.restaurant
         },
         token
       }
@@ -302,7 +317,8 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
       email: req.body.email || user.email,
       brandType: req.body.brandType || user.brandType,
       description: req.body.description || user.description,
-      category: req.body.category || user.category,
+      // category kayıt sırasında belirlenir, güncellenmez
+      // category: req.body.category || user.category, // DEVRE DIŞI
       address: req.body.address || user.address,
       city: req.body.city || user.city,
       district: req.body.district || user.district,
