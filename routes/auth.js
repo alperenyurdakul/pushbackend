@@ -104,7 +104,7 @@ router.post('/register', async (req, res) => {
     console.log('Method:', req.method);
     console.log('=======================');
     
-    const { phone, password, name, userType, category } = req.body;
+    const { phone, password, name, userType, category, city } = req.body;
 
     if (!phone || !password || !name) {
       return res.status(400).json({
@@ -113,11 +113,18 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Marka kayıtlarında kategori zorunlu
+    // Marka kayıtlarında kategori ve şehir zorunlu
     if (userType === 'brand' && !category) {
       return res.status(400).json({
         success: false,
         message: 'Marka kayıtları için kategori seçimi zorunludur!'
+      });
+    }
+
+    if (userType === 'brand' && !city) {
+      return res.status(400).json({
+        success: false,
+        message: 'Marka kayıtları için şehir seçimi zorunludur!'
       });
     }
 
@@ -137,6 +144,7 @@ router.post('/register', async (req, res) => {
       name,
       userType: userType || 'customer',
       category: category || 'Kahve', // Kategori kayıt sırasında belirlenir
+      city: city || null, // Şehir kayıt sırasında belirlenir
       restaurant: {
         name: name, // Restaurant adı marka adıyla aynı
         type: 'restaurant'
@@ -162,6 +170,7 @@ router.post('/register', async (req, res) => {
           name: user.name,
           userType: user.userType,
           category: user.category,
+          city: user.city,
           restaurant: user.restaurant
         },
         token

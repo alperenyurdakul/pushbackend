@@ -82,20 +82,55 @@ class OneSignalService {
                oneSignalExternalId: { $exists: true, $ne: null }
              };
              
-             // Şehir filtresi
+             // Şehir filtresi - sadece tercih belirtmiş kullanıcılara uygula
              if (bannerCity) {
-               query['preferences.city'] = bannerCity;
+               query['$or'] = [
+                 { 'preferences.city': bannerCity },
+                 { 'preferences.city': { $exists: false } },
+                 { 'preferences.city': null }
+               ];
              }
              
-             // Kategori filtresi
+             // Kategori filtresi - sadece tercih belirtmiş kullanıcılara uygula
              if (bannerCategory) {
-               query['preferences.categories'] = bannerCategory;
+               if (!query['$or']) {
+                 query['$or'] = [];
+               }
+               const categoryFilter = {
+                 '$or': [
+                   { 'preferences.categories': bannerCategory },
+                   { 'preferences.categories': { $exists: false } },
+                   { 'preferences.categories': [] }
+                 ]
+               };
+               // Her iki filtre varsa AND mantığı uygula
+               if (bannerCity) {
+                 query['$and'] = [
+                   { 
+                     '$or': [
+                       { 'preferences.city': bannerCity },
+                       { 'preferences.city': { $exists: false } },
+                       { 'preferences.city': null }
+                     ]
+                   },
+                   {
+                     '$or': [
+                       { 'preferences.categories': bannerCategory },
+                       { 'preferences.categories': { $exists: false } },
+                       { 'preferences.categories': [] }
+                     ]
+                   }
+                 ];
+                 delete query['$or'];
+               } else {
+                 query['$or'] = categoryFilter['$or'];
+               }
              }
              
              console.log('🔍 OneSignal filtresi:', {
                bannerCity,
                bannerCategory,
-               query
+               query: JSON.stringify(query, null, 2)
              });
              
              const users = await User.find(query);

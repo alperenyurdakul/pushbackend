@@ -78,12 +78,12 @@ const userSchema = new mongoose.Schema({
   },
   city: {
     type: String,
-    default: 'İstanbul',
+    default: null, // Varsayılan şehir yok, kullanıcı seçmeli
     trim: true
   },
   district: {
     type: String,
-    default: 'Kadıköy',
+    default: null, // Varsayılan district yok
     trim: true
   },
   logo: {
