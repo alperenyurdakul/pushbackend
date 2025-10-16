@@ -1158,4 +1158,47 @@ router.post('/verify-customer-code', async (req, res) => {
   }
 });
 
+// Test bildirimi endpoint'i
+router.post('/test-notification', async (req, res) => {
+  try {
+    console.log('📱 Test bildirimi gönderiliyor...');
+    
+    const { title, message, data, targetCity, targetCategory } = req.body;
+    
+    // Varsayılan değerler
+    const notificationTitle = title || '🔔 Test Bildirimi';
+    const notificationMessage = message || 'OneSignal test bildirimi - Bu mesaj başarıyla geldi!';
+    const notificationData = data || { type: 'test', timestamp: new Date().toISOString() };
+    
+    // OneSignal ile bildirim gönder
+    const oneSignalResult = await OneSignalService.sendToAll(
+      notificationTitle,
+      notificationMessage,
+      notificationData,
+      targetCity || null,
+      targetCategory || null
+    );
+    
+    console.log('✅ OneSignal test bildirimi gönderildi:', oneSignalResult);
+    
+    res.json({
+      success: true,
+      message: 'Test bildirimi başarıyla gönderildi',
+      oneSignalResult: oneSignalResult,
+      sentTo: {
+        city: targetCity || 'Tümü',
+        category: targetCategory || 'Tümü'
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Test bildirimi hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Test bildirimi gönderilemedi',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router; 

@@ -233,7 +233,15 @@ router.post('/login', async (req, res) => {
           id: user._id,
           phone: user.phone,
           name: user.name,
-          userType: user.userType
+          userType: user.userType,
+          brandType: user.brandType,
+          description: user.description,
+          category: user.category,
+          address: user.address,
+          city: user.city,
+          district: user.district,
+          logo: user.logo,
+          email: user.email
         },
         token
       }

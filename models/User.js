@@ -47,7 +47,7 @@ const userSchema = new mongoose.Schema({
     },
     categories: [{
       type: String,
-      enum: ['Kahve', 'Yiyecek', 'Bar/Pub', 'Giyim', 'Kuaför']
+      enum: ['Kahve', 'Yiyecek', 'Bar/Pub', 'Giyim', 'Kuaför','Spor']
     }]
   },
   // Marka profil bilgileri
@@ -68,7 +68,7 @@ const userSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['Kahve', 'Yiyecek', 'Bar/Pub', 'Giyim', 'Kuaför'],
+    enum: ['Kahve', 'Yiyecek', 'Bar/Pub', 'Giyim', 'Kuaför','Spor'],
     default: 'Kahve'
   },
   address: {
