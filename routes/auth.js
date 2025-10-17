@@ -731,6 +731,80 @@ router.get('/brand-logo/:restaurantName', async (req, res) => {
   }
 });
 
+// Kullanıcının kampanya geçmişini getir (kod oluşturduğu banner'lar)
+router.get('/my-campaigns/:phone', async (req, res) => {
+  try {
+    const { phone } = req.params;
+    
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Telefon numarası gerekli'
+      });
+    }
+
+    const CodeHistory = require('../models/CodeHistory');
+    const Banner = require('../models/Banner');
+    
+    // Kullanıcının tüm kod geçmişini çek (son 30 gün)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const codeHistory = await CodeHistory.find({
+      phone: phone,
+      createdAt: { $gte: thirtyDaysAgo }
+    })
+    .populate('bannerId')
+    .sort({ createdAt: -1 }); // En yeni önce
+    
+    // Banner bilgilerini formatla
+    const campaigns = await Promise.all(codeHistory.map(async (history) => {
+      const banner = history.bannerId;
+      
+      if (!banner) {
+        return null; // Banner silinmişse
+      }
+      
+      return {
+        _id: history._id,
+        code: history.code,
+        createdAt: history.createdAt,
+        used: history.used,
+        usedAt: history.usedAt,
+        banner: {
+          _id: banner._id,
+          title: banner.title,
+          description: banner.description,
+          category: banner.category,
+          bannerLocation: banner.bannerLocation,
+          brandProfile: banner.brandProfile,
+          restaurant: banner.restaurant
+        }
+      };
+    }));
+    
+    // Null değerleri filtrele (silinmiş banner'lar)
+    const validCampaigns = campaigns.filter(c => c !== null);
+    
+    console.log('✅ Kampanya geçmişi alındı:', {
+      phone,
+      totalCampaigns: validCampaigns.length
+    });
+    
+    res.json({
+      success: true,
+      data: validCampaigns
+    });
+    
+  } catch (error) {
+    console.error('Kampanya geçmişi alma hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Sunucu hatası'
+    });
+  }
+});
+
 // Kullanıcı tercihlerini güncelleme (şehir ve kategoriler)
 router.put('/update-preferences', async (req, res) => {
   try {
