@@ -171,7 +171,8 @@ router.post('/register', async (req, res) => {
           userType: user.userType,
           category: user.category,
           city: user.city,
-          restaurant: user.restaurant
+          restaurant: user.restaurant,
+          preferences: user.preferences || { city: null, categories: [] }
         },
         token
       }
@@ -241,7 +242,8 @@ router.post('/login', async (req, res) => {
           city: user.city,
           district: user.district,
           logo: user.logo,
-          email: user.email
+          email: user.email,
+          preferences: user.preferences || { city: null, categories: [] }
         },
         token
       }
@@ -738,15 +740,18 @@ router.put('/update-preferences', async (req, res) => {
     console.log('✅ Kullanıcı tercihleri güncellendi:', {
       phone,
       city,
-      categories
+      categories,
+      savedPreferences: user.preferences
     });
     
     res.json({
       success: true,
       message: 'Tercihler güncellendi',
       data: {
-        city: user.preferences.city,
-        categories: user.preferences.categories
+        preferences: {
+          city: user.preferences.city,
+          categories: user.preferences.categories
+        }
       }
     });
     
