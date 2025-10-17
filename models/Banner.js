@@ -80,7 +80,7 @@ const bannerSchema = new mongoose.Schema({
   // Banner kategorisi
   category: {
     type: String,
-    enum: ['Kahve', 'Yiyecek', 'Bar/Pub', 'Giyim', 'Kuaför'],
+    enum: ['Kahve', 'Yiyecek', 'Bar/Pub', 'Giyim', 'Kuaför', 'Spor'],
     default: 'Kahve'
   },
   // Banner istatistikleri
@@ -125,6 +125,29 @@ const bannerSchema = new mongoose.Schema({
     remaining: {
       type: Number,
       default: 10
+    }
+  },
+  // Kod tipi ve sabit kod bilgileri
+  codeSettings: {
+    codeType: {
+      type: String,
+      enum: ['random', 'fixed'],
+      default: 'random'
+    },
+    fixedCode: {
+      type: String,
+      default: null,
+      validate: {
+        validator: function(v) {
+          // Sabit kod seçildiyse kod zorunlu
+          if (this.codeSettings?.codeType === 'fixed') {
+            // Alfanumerik, 4-20 karakter arası
+            return v && v.length >= 4 && v.length <= 20 && /^[a-zA-Z0-9]+$/.test(v);
+          }
+          return true;
+        },
+        message: 'Sabit kod 4-20 karakter arası harf ve rakamlardan oluşmalıdır'
+      }
     }
   },
   // Marka profil bilgileri

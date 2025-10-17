@@ -587,6 +587,17 @@ router.post('/generate-code', async (req, res) => {
         });
       }
 
+      // Banner'ı bul ve kod tipini kontrol et
+      const Banner = require('../models/Banner');
+      const banner = await Banner.findById(bannerId);
+      
+      if (!banner) {
+        return res.status(404).json({
+          success: false,
+          message: 'Banner bulunamadı'
+        });
+      }
+
       // Bu banner için bugün kod var mı kontrol et
       const CodeHistory = require('../models/CodeHistory');
       const today = new Date();
@@ -605,12 +616,22 @@ router.post('/generate-code', async (req, res) => {
           code: existingCode.code,
           createdAt: existingCode.createdAt,
           expiresIn: '24 saat',
-          isReused: true
+          isReused: true,
+          codeType: banner.codeSettings?.codeType || 'random'
         });
       }
 
-      // 6 haneli kod oluştur
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      // Kod oluştur - Sabit veya Random
+      let code;
+      if (banner.codeSettings?.codeType === 'fixed' && banner.codeSettings?.fixedCode) {
+        // Sabit kod kullan
+        code = banner.codeSettings.fixedCode;
+        console.log('🔒 Sabit kod kullanılıyor:', code);
+      } else {
+        // Random kod oluştur
+        code = Math.floor(100000 + Math.random() * 900000).toString();
+        console.log('🎲 Random kod oluşturuldu:', code);
+      }
       
       // Veritabanına kaydet
       const codeHistory = new CodeHistory({
@@ -628,7 +649,8 @@ router.post('/generate-code', async (req, res) => {
         code: code,
         createdAt: codeHistory.createdAt,
         expiresIn: '24 saat',
-        isReused: false
+        isReused: false,
+        codeType: banner.codeSettings?.codeType || 'random'
       });
       
     } catch (jwtError) {

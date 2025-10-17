@@ -295,7 +295,7 @@ router.get('/test', (req, res) => {
 // AI Banner oluşturma endpoint'i
 router.post('/generate-banner', async (req, res) => {
   try {
-    const { restaurantId, restaurantName, campaignDescription, targetAudience, location, brandInfo, category, codeQuota } = req.body;
+    const { restaurantId, restaurantName, campaignDescription, targetAudience, location, brandInfo, category, codeQuota, codeSettings } = req.body;
 
     // JWT token'dan kullanıcı bilgilerini al
     let user = null;
@@ -474,6 +474,25 @@ router.post('/generate-banner', async (req, res) => {
 
     console.log("AI Service'den banner alındı");
 
+    // Kod tipi validasyonu
+    if (codeSettings?.codeType === 'fixed') {
+      if (!codeSettings.fixedCode || codeSettings.fixedCode.length < 4 || codeSettings.fixedCode.length > 20) {
+        return res.status(400).json({
+          success: false,
+          message: 'Sabit kod 4-20 karakter arası olmalıdır!'
+        });
+      }
+      if (!/^[a-zA-Z0-9]+$/.test(codeSettings.fixedCode)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Sabit kod sadece harf ve rakam içerebilir!'
+        });
+      }
+      console.log('🔒 Sabit kod banner oluşturuluyor:', codeSettings.fixedCode);
+    } else {
+      console.log('🎲 Random kod banner oluşturuluyor');
+    }
+
     // Yeni banner oluştur
     const newBanner = new Banner({
       restaurant: restaurant._id,
@@ -504,6 +523,10 @@ router.post('/generate-banner', async (req, res) => {
         views: 0,
         clicks: 0,
         conversions: 0
+      },
+      codeSettings: {
+        codeType: codeSettings?.codeType || 'random',
+        fixedCode: codeSettings?.codeType === 'fixed' ? codeSettings.fixedCode : null
       },
       aiModel: {
         model: aiResponse.data.model || 'gpt-4',
