@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema({
   },
   userType: {
     type: String,
-    enum: ['customer', 'brand'],
+    enum: ['customer', 'brand', 'eventBrand'],
     default: 'customer'
   },
   phoneVerified: {

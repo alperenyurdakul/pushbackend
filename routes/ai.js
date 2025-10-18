@@ -493,6 +493,9 @@ router.post('/generate-banner', async (req, res) => {
       console.log('🎲 Random kod banner oluşturuluyor');
     }
 
+    // Kullanıcının userType'ına göre contentType belirle
+    const contentType = user?.userType === 'eventBrand' ? 'event' : 'campaign';
+    
     // Yeni banner oluştur
     const newBanner = new Banner({
       restaurant: restaurant._id,
@@ -501,6 +504,7 @@ router.post('/generate-banner', async (req, res) => {
       aiGeneratedText: aiResponse.data.ai_generated_text,
       bannerImage: aiResponse.data.banner_image, // AI'dan gelen görsel
       category: category || 'Kahve', // Kategori ekle
+      contentType: contentType, // Etkinlik mi kampanya mı
       bannerLocation: {
         city: location?.city || 'İstanbul',
         district: location?.district || 'Genel',
@@ -834,7 +838,8 @@ router.get('/banners/active', async (req, res) => {
   try {
     const { restaurantName } = req.query;
     
-    let query = { status: 'active' };
+    // Sadece campaign tipindeki banner'ları getir
+    let query = { status: 'active', contentType: 'campaign' };
     if (restaurantName) {
       // Restoran adına göre filtrele
       const restaurant = await Restaurant.findOne({ name: restaurantName });
@@ -862,6 +867,31 @@ router.get('/banners/active', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Aktif banner\'lar listelenirken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
+// Etkinlik banner'larını getir
+router.get('/banners/events', async (req, res) => {
+  try {
+    // Sadece event tipindeki banner'ları getir
+    const eventBanners = await Banner.find({ 
+      status: 'active', 
+      contentType: 'event' 
+    }).populate('restaurant');
+    
+    console.log('Backend: Found event banners:', eventBanners.length);
+    
+    res.json({
+      success: true,
+      data: eventBanners
+    });
+  } catch (error) {
+    console.error('Etkinlik banner\'ları listelenirken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Etkinlik banner\'ları listelenirken hata oluştu!',
       error: error.message
     });
   }

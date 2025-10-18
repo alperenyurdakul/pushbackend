@@ -112,6 +112,12 @@ const bannerSchema = new mongoose.Schema({
     enum: ['draft', 'active', 'paused', 'completed', 'archived'],
     default: 'draft'
   },
+  // Banner türü - etkinlik mi yoksa normal kampanya mı
+  contentType: {
+    type: String,
+    enum: ['campaign', 'event'],
+    default: 'campaign'
+  },
   // Kod kotası bilgileri
   codeQuota: {
     total: {
