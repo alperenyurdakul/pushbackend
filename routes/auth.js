@@ -860,6 +860,82 @@ router.get('/my-campaigns/:phone', async (req, res) => {
   }
 });
 
+// Kullanıcı hesabını tamamen silme
+router.delete('/delete-account', async (req, res) => {
+  try {
+    const { phone, password } = req.body;
+    
+    if (!phone || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Telefon numarası ve şifre gerekli'
+      });
+    }
+
+    // Kullanıcıyı bul
+    const user = await User.findOne({ phone });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı'
+      });
+    }
+
+    // Şifre kontrolü
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Şifre hatalı'
+      });
+    }
+
+    console.log('🗑️ Kullanıcı silme işlemi başlatıldı:', {
+      userId: user._id,
+      phone: user.phone,
+      name: user.name,
+      userType: user.userType
+    });
+
+    // Kullanıcının restaurant'ını bul
+    const Restaurant = require('../models/Restaurant');
+    const Banner = require('../models/Banner');
+    const CodeHistory = require('../models/CodeHistory');
+    
+    const restaurant = await Restaurant.findOne({ name: user.name });
+    
+    if (restaurant) {
+      // Restaurant'a ait tüm banner'ları sil
+      const bannerDeleteResult = await Banner.deleteMany({ restaurant: restaurant._id });
+      console.log('📢 Bannerlar silindi:', bannerDeleteResult.deletedCount);
+      
+      // Restaurant'ı sil
+      await Restaurant.findByIdAndDelete(restaurant._id);
+      console.log('🏪 Restaurant silindi');
+    }
+    
+    // Kullanıcının kod geçmişini sil
+    const codeHistoryDeleteResult = await CodeHistory.deleteMany({ phone: user.phone });
+    console.log('📝 Kod geçmişi silindi:', codeHistoryDeleteResult.deletedCount);
+    
+    // Kullanıcıyı sil
+    await User.findByIdAndDelete(user._id);
+    console.log('👤 Kullanıcı silindi');
+
+    res.json({
+      success: true,
+      message: 'Hesabınız ve tüm verileriniz başarıyla silindi'
+    });
+
+  } catch (error) {
+    console.error('Hesap silme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Sunucu hatası'
+    });
+  }
+});
+
 // Kullanıcı tercihlerini güncelleme (şehir ve kategoriler)
 router.put('/update-preferences', async (req, res) => {
   try {
