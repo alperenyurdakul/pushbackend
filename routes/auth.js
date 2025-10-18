@@ -765,21 +765,23 @@ router.get('/my-campaigns/:phone', async (req, res) => {
         return null; // Banner silinmişse
       }
       
+      // Banner'ı populate et
+      await banner.populate('restaurant');
+      
       return {
-        _id: history._id,
+        _id: banner._id,
+        title: banner.title,
+        description: banner.description,
+        category: banner.category,
         code: history.code,
         createdAt: history.createdAt,
         used: history.used,
         usedAt: history.usedAt,
-        banner: {
-          _id: banner._id,
-          title: banner.title,
-          description: banner.description,
-          category: banner.category,
-          bannerLocation: banner.bannerLocation,
-          brandProfile: banner.brandProfile,
-          restaurant: banner.restaurant
-        }
+        campaign: banner.campaign,
+        bannerLocation: banner.bannerLocation,
+        brandProfile: banner.brandProfile,
+        restaurant: banner.restaurant,
+        status: banner.status
       };
     }));
     
@@ -793,7 +795,7 @@ router.get('/my-campaigns/:phone', async (req, res) => {
     
     res.json({
       success: true,
-      data: validCampaigns
+      campaigns: validCampaigns
     });
     
   } catch (error) {

@@ -295,7 +295,7 @@ router.get('/test', (req, res) => {
 // AI Banner oluşturma endpoint'i
 router.post('/generate-banner', async (req, res) => {
   try {
-    const { restaurantId, restaurantName, campaignDescription, targetAudience, location, brandInfo, category, codeQuota, codeSettings } = req.body;
+    const { restaurantId, restaurantName, campaignDescription, targetAudience, location, brandInfo, category, codeQuota, codeSettings, campaign } = req.body;
 
     // JWT token'dan kullanıcı bilgilerini al
     let user = null;
@@ -507,11 +507,11 @@ router.post('/generate-banner', async (req, res) => {
         address: location?.address || ''
       },
       campaign: {
-        startDate: new Date(),
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 gün sonra
-        startTime: '00:00',
-        endTime: '23:59',
-        daysOfWeek: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+        startDate: campaign?.startDate ? new Date(campaign.startDate) : new Date(),
+        endDate: campaign?.endDate ? new Date(campaign.endDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        startTime: campaign?.startTime || '00:00',
+        endTime: campaign?.endTime || '23:59',
+        daysOfWeek: campaign?.daysOfWeek || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
         isActive: true
       },
       targetAudience: {
