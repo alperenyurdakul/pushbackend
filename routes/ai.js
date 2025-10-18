@@ -297,7 +297,7 @@ router.post('/generate-banner', async (req, res) => {
   try {
     const { restaurantId, restaurantName, campaignDescription, targetAudience, location, brandInfo, category, codeQuota, codeSettings, campaign } = req.body;
 
-    // JWT token'dan kullanıcı bilgilerini al
+    // JWT token'dan kullanıcı bilgilerini al ve EN GÜNCEL halini veritabanından çek
     let user = null;
     const token = req.headers.authorization?.replace('Bearer ', '');
     console.log('🔐 JWT Token kontrolü:', {
@@ -310,12 +310,15 @@ router.post('/generate-banner', async (req, res) => {
       try {
         const jwt = require('jsonwebtoken');
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // EN GÜNCEL kullanıcı bilgilerini veritabanından çek (logo güncellemesi için)
         user = await User.findById(decoded.userId);
-        console.log('👤 Kullanıcı bulundu:', {
+        console.log('👤 Kullanıcı bulundu (EN GÜNCEL):', {
           userId: user?._id,
           name: user?.name,
           logo: user?.logo,
-          category: user?.category
+          logoExists: !!user?.logo,
+          category: user?.category,
+          userType: user?.userType
         });
       } catch (jwtError) {
         console.log('❌ JWT token hatası:', jwtError.message);
@@ -449,13 +452,20 @@ router.post('/generate-banner', async (req, res) => {
           saturday: { open: '10:00', close: '23:00' },
           sunday: { open: '10:00', close: '22:00' }
         },
-        logo: null,
+        logo: user?.logo || null, // Kullanıcının logosunu kullan
         description: brandInfo?.description || `${finalRestaurantName} restoranı`,
         isActive: true
       });
       
       await restaurant.save();
-      console.log('Yeni restoran oluşturuldu:', restaurant._id);
+      console.log('Yeni restoran oluşturuldu:', restaurant._id, 'Logo:', user?.logo || 'Yok');
+    } else {
+      // Mevcut restaurant varsa ve logo yoksa, user'ın logosunu ekle
+      if (user?.logo && !restaurant.logo) {
+        restaurant.logo = user.logo;
+        await restaurant.save();
+        console.log('🏪 Restaurant logosu güncellendi:', user.logo);
+      }
     }
 
     // AI service'den gelen banner_image kullanılıyor

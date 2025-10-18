@@ -379,6 +379,59 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
       logo: updatedUser.logo
     });
 
+    // Logo güncellendiyse, bu kullanıcının restaurant ve banner'larını güncelle
+    if (updateData.logo || updateData.description || updateData.city || updateData.district) {
+      try {
+        const Banner = require('../models/Banner');
+        const Restaurant = require('../models/Restaurant');
+        
+        // Önce kullanıcının restaurant'ını bul
+        const restaurant = await Restaurant.findOne({ name: updatedUser.name });
+        
+        if (restaurant) {
+          // Restaurant modelini güncelle
+          const restaurantUpdateData = {};
+          if (updateData.logo) restaurantUpdateData.logo = updateData.logo;
+          if (updateData.description) restaurantUpdateData.description = updateData.description;
+          if (updateData.city) restaurantUpdateData['address.city'] = updateData.city;
+          if (updateData.district) restaurantUpdateData['address.district'] = updateData.district;
+          
+          await Restaurant.findByIdAndUpdate(
+            restaurant._id,
+            { $set: restaurantUpdateData },
+            { new: true }
+          );
+          
+          console.log('🏪 Restaurant güncellendi:', {
+            restaurantId: restaurant._id,
+            logo: updateData.logo
+          });
+          
+          // Bu restoran'a ait tüm banner'ları güncelle
+          const bannerUpdateData = {};
+          if (updateData.logo) bannerUpdateData['brandProfile.logo'] = updateData.logo;
+          if (updateData.description) bannerUpdateData['brandProfile.description'] = updateData.description;
+          if (updateData.city) bannerUpdateData['brandProfile.city'] = updateData.city;
+          if (updateData.district) bannerUpdateData['brandProfile.district'] = updateData.district;
+          bannerUpdateData.updatedAt = new Date();
+          
+          const updateResult = await Banner.updateMany(
+            { restaurant: restaurant._id },
+            { $set: bannerUpdateData }
+          );
+          
+          console.log('📢 Banner brandProfile güncellendi:', {
+            matchedCount: updateResult.matchedCount,
+            modifiedCount: updateResult.modifiedCount,
+            updates: bannerUpdateData
+          });
+        }
+      } catch (bannerUpdateError) {
+        console.error('❌ Restaurant/Banner güncellenirken hata:', bannerUpdateError);
+        // Hata olsa bile profil güncellemesi başarılı sayılır
+      }
+    }
+
     res.json({
       success: true,
       message: 'Profil başarıyla güncellendi',
