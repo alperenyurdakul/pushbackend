@@ -871,6 +871,55 @@ router.get('/my-campaigns/:phone', async (req, res) => {
   }
 });
 
+// Token doğrulama endpoint'i
+router.get('/validate-token', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token bulunamadı!'
+      });
+    }
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const user = await User.findById(decoded.userId);
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Kullanıcı bulunamadı!'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Token geçerli',
+        user: {
+          id: user._id,
+          phone: user.phone,
+          name: user.name,
+          userType: user.userType,
+          credits: user.credits || 0
+        }
+      });
+    } catch (jwtError) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token geçersiz veya süresi dolmuş!'
+      });
+    }
+  } catch (error) {
+    console.error('Token doğrulama hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Token doğrulanırken hata oluştu!'
+    });
+  }
+});
+
 // Kullanıcı hesabını tamamen silme
 router.delete('/delete-account', async (req, res) => {
   try {
