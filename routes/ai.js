@@ -842,8 +842,16 @@ router.get('/banners/active', async (req, res) => {
   try {
     const { restaurantName } = req.query;
     
-    // Sadece campaign tipindeki banner'ları getir
-    let query = { status: 'active', contentType: 'campaign' };
+    // Campaign tipindeki banner'ları getir (contentType null olanlar da dahil - geriye uyumluluk)
+    let query = { 
+      status: 'active',
+      $or: [
+        { contentType: 'campaign' },
+        { contentType: { $exists: false } }, // Eski banner'lar için
+        { contentType: null } // Null olanlar için
+      ]
+    };
+    
     if (restaurantName) {
       // Restoran adına göre filtrele
       const restaurant = await Restaurant.findOne({ name: restaurantName });
@@ -859,6 +867,7 @@ router.get('/banners/active', async (req, res) => {
       id: b._id, 
       title: b.title, 
       category: b.category,
+      contentType: b.contentType,
       restaurant: b.restaurant?.name 
     })));
     

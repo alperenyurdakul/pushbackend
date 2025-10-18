@@ -114,14 +114,14 @@ router.post('/register', async (req, res) => {
     }
 
     // Marka kayıtlarında kategori ve şehir zorunlu
-    if (userType === 'brand' && !category) {
+    if ((userType === 'brand' || userType === 'eventBrand') && !category) {
       return res.status(400).json({
         success: false,
         message: 'Marka kayıtları için kategori seçimi zorunludur!'
       });
     }
 
-    if (userType === 'brand' && !city) {
+    if ((userType === 'brand' || userType === 'eventBrand') && !city) {
       return res.status(400).json({
         success: false,
         message: 'Marka kayıtları için şehir seçimi zorunludur!'
