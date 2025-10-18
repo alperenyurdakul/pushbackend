@@ -104,12 +104,20 @@ router.post('/register', async (req, res) => {
     console.log('Method:', req.method);
     console.log('=======================');
     
-    const { phone, password, name, userType, category, city } = req.body;
+    const { phone, password, name, email, userType, category, city } = req.body;
 
     if (!phone || !password || !name) {
       return res.status(400).json({
         success: false,
         message: 'Telefon, şifre ve isim gerekli!'
+      });
+    }
+
+    // Email validasyonu (marka kayıtlarında zorunlu)
+    if ((userType === 'brand' || userType === 'eventBrand') && !email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Marka kayıtları için e-posta gerekli!'
       });
     }
 
@@ -142,6 +150,7 @@ router.post('/register', async (req, res) => {
       phone,
       password,
       name,
+      email: email || null, // E-posta (opsiyonel, marka kayıtlarında zorunlu)
       userType: userType || 'customer',
       category: category || 'Kahve', // Kategori kayıt sırasında belirlenir
       city: city || null, // Şehir kayıt sırasında belirlenir
