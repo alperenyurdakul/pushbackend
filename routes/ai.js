@@ -604,13 +604,17 @@ router.post('/generate-banner', async (req, res) => {
       const bannerCity = newBanner.bannerLocation?.city || null;
       const bannerCategory = category || null;
       
+      // contentType'a göre bildirim başlığını belirle
+      const notificationTitle = contentType === 'event' ? '🎪 Yeni Etkinlik!' : '🎉 Yeni Kampanya!';
+      
       const oneSignalResult = await OneSignalService.sendToAll(
-        `🎉 Yeni Kampanya!`,
+        notificationTitle,
         `${restaurant.name} - ${campaignDescription}`,
         { 
-          type: 'new_banner',
+          type: contentType === 'event' ? 'new_event' : 'new_banner',
           bannerId: newBanner._id.toString(),
           restaurantName: restaurant.name,
+          contentType: contentType,
           timestamp: new Date().toISOString()
         },
         bannerCity,  // Şehir filtresi
