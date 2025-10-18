@@ -19,8 +19,19 @@ const userSchema = new mongoose.Schema({
   },
   userType: {
     type: String,
-    enum: ['customer', 'brand', 'eventBrand'],
+    enum: ['customer', 'brand', 'eventBrand', 'admin'],
     default: 'customer'
+  },
+  isAdmin: {
+    type: Boolean,
+    default: false
+  },
+  credits: {
+    type: Number,
+    default: function() {
+      // Sadece brand ve eventBrand için 10 kredi ver
+      return (this.userType === 'brand' || this.userType === 'eventBrand') ? 10 : 0;
+    }
   },
   phoneVerified: {
     type: Boolean,

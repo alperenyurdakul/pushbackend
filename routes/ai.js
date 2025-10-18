@@ -318,13 +318,29 @@ router.post('/generate-banner', async (req, res) => {
           logo: user?.logo,
           logoExists: !!user?.logo,
           category: user?.category,
-          userType: user?.userType
+          userType: user?.userType,
+          credits: user?.credits
         });
       } catch (jwtError) {
         console.log('❌ JWT token hatası:', jwtError.message);
       }
     } else {
       console.log('⚠️ JWT token bulunamadı');
+    }
+
+    // Kredi kontrolü (sadece brand ve eventBrand için)
+    if (user && (user.userType === 'brand' || user.userType === 'eventBrand')) {
+      if (user.credits <= 0) {
+        return res.status(403).json({
+          success: false,
+          message: 'Krediniz yetersiz! Banner oluşturmak için kredinizi yenilemeniz gerekiyor.',
+          currentCredits: user.credits
+        });
+      }
+      console.log('💳 Kredi kontrolü geçildi:', {
+        currentCredits: user.credits,
+        willBeAfter: user.credits - 1
+      });
     }
 
     // restaurantId varsa restoran bilgisini al, yoksa restaurantName kullan
@@ -548,6 +564,7 @@ router.post('/generate-banner', async (req, res) => {
         generationDate: new Date()
       },
       status: 'active',
+      approvalStatus: 'pending', // Admin onayı bekliyor
       codeQuota: {
         total: codeQuota || 10,
         used: 0,
@@ -582,7 +599,7 @@ router.post('/generate-banner', async (req, res) => {
     });
 
     await newBanner.save();
-    console.log('Yeni banner veritabanına kaydedildi:', newBanner._id);
+    console.log('Yeni banner veritabanına kaydedildi (ONAY BEKLİYOR):', newBanner._id);
 
     // Kota güncellemesi
     if (restaurant) {
@@ -596,71 +613,25 @@ router.post('/generate-banner', async (req, res) => {
       });
     }
 
-    // Bildirim ekle (bildirimler tab'ında görünmesi için)
-    addNotification(
-      'new_banner',
-      'Yeni Kampanya!',
-      `${campaignDescription}`,
-      { 
-        bannerId: newBanner._id.toString(),
-        restaurantName: restaurantName,
-        bannerTitle: newBanner.title
-      }
-    );
-
-    // OneSignal Push Notification gönder (şehir ve kategori filtreli)
-    try {
-      console.log('📱 OneSignal push notification gönderiliyor (filtreli)...');
-      const bannerCity = newBanner.bannerLocation?.city || null;
-      const bannerCategory = category || null;
-      
-      // contentType'a göre bildirim başlığını belirle
-      const notificationTitle = contentType === 'event' ? '🎪 Yeni Etkinlik!' : '🎉 Yeni Kampanya!';
-      
-      const oneSignalResult = await OneSignalService.sendToAll(
-        notificationTitle,
-        `${restaurant.name} - ${campaignDescription}`,
-        { 
-          type: contentType === 'event' ? 'new_event' : 'new_banner',
-          bannerId: newBanner._id.toString(),
-          restaurantName: restaurant.name,
-          contentType: contentType,
-          timestamp: new Date().toISOString()
-        },
-        bannerCity,  // Şehir filtresi
-        bannerCategory  // Kategori filtresi
-      );
-      console.log('✅ OneSignal push notification gönderildi:', oneSignalResult);
-    } catch (oneSignalError) {
-      console.error('❌ OneSignal push notification gönderilemedi:', oneSignalError);
+    // Kullanıcının kredisini azalt (sadece brand ve eventBrand için)
+    if (user && (user.userType === 'brand' || user.userType === 'eventBrand')) {
+      user.credits -= 1;
+      await user.save();
+      console.log('💳 Kullanıcı kredisi azaltıldı:', {
+        userId: user._id,
+        previousCredits: user.credits + 1,
+        currentCredits: user.credits
+      });
     }
 
-    // Expo Push Notification gönder (şehir ve kategori filtreli)
-    try {
-      console.log('📱 Expo push notification gönderiliyor (filtreli)...');
-      const bannerCity = newBanner.bannerLocation?.city || null;
-      const bannerCategory = category || null;
-      
-      await sendPushNotificationToAllUsers(
-        `🎉 Yeni Kampanya!`,
-        `${restaurant.name} - ${campaignDescription}`,
-        { 
-          type: 'new_banner',
-          bannerId: newBanner._id.toString(),
-          restaurantName: restaurant.name,
-          timestamp: new Date().toISOString()
-        },
-        bannerCity,  // Şehir filtresi
-        bannerCategory  // Kategori filtresi
-      );
-      console.log('✅ Expo push notification gönderildi');
-    } catch (expoError) {
-      console.error('❌ Expo push notification gönderilemedi:', expoError);
-    }
+    // NOT: Bildirimler admin onayından sonra gönderilecek
+    console.log('⏳ Banner admin onayı bekliyor. Onaylandığında bildirim gönderilecek.');
 
     res.json({
       success: true,
-      message: 'Banner başarıyla oluşturuldu',
+      message: 'Banner oluşturuldu ve admin onayı bekleniyor. Onaylandığında kullanıcılara görünür olacak.',
+      approvalStatus: 'pending',
+      remainingCredits: user ? user.credits : null,
       data: {
         _id: newBanner._id,
         restaurant: {
@@ -847,14 +818,15 @@ router.delete('/banners/:id', async (req, res) => {
   }
 });
 
-// Aktif banner'ları listele
+// Aktif banner'ları listele (Sadece onaylanmış banner'lar)
 router.get('/banners/active', async (req, res) => {
   try {
     const { restaurantName } = req.query;
     
-    // Campaign tipindeki banner'ları getir (contentType null olanlar da dahil - geriye uyumluluk)
+    // Campaign tipindeki VE ONAYLANMIŞ banner'ları getir (contentType null olanlar da dahil - geriye uyumluluk)
     let query = { 
       status: 'active',
+      approvalStatus: 'approved', // Sadece onaylanmış banner'lar
       $or: [
         { contentType: 'campaign' },
         { contentType: { $exists: false } }, // Eski banner'lar için
@@ -895,13 +867,14 @@ router.get('/banners/active', async (req, res) => {
   }
 });
 
-// Etkinlik banner'larını getir
+// Etkinlik banner'larını getir (Sadece onaylanmış)
 router.get('/banners/events', async (req, res) => {
   try {
-    // Sadece event tipindeki banner'ları getir
+    // Sadece event tipindeki VE ONAYLANMIŞ banner'ları getir
     const eventBanners = await Banner.find({ 
       status: 'active', 
-      contentType: 'event' 
+      contentType: 'event',
+      approvalStatus: 'approved' // Sadece onaylanmış banner'lar
     }).populate('restaurant');
     
     console.log('Backend: Found event banners:', eventBanners.length);

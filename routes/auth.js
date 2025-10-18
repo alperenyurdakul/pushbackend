@@ -235,6 +235,8 @@ router.post('/login', async (req, res) => {
           phone: user.phone,
           name: user.name,
           userType: user.userType,
+          isAdmin: user.isAdmin || false,
+          credits: user.credits || 0,
           brandType: user.brandType,
           description: user.description,
           category: user.category,

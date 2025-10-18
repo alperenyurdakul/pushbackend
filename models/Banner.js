@@ -112,6 +112,25 @@ const bannerSchema = new mongoose.Schema({
     enum: ['draft', 'active', 'paused', 'completed', 'archived'],
     default: 'draft'
   },
+  // Admin onay durumu
+  approvalStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
+  },
+  rejectedReason: {
+    type: String,
+    default: null
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  approvedAt: {
+    type: Date,
+    default: null
+  },
   // Banner türü - etkinlik mi yoksa normal kampanya mı
   contentType: {
     type: String,
