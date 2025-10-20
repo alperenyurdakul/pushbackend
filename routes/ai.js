@@ -295,7 +295,7 @@ router.get('/test', (req, res) => {
 // AI Banner oluşturma endpoint'i
 router.post('/generate-banner', async (req, res) => {
   try {
-    const { restaurantId, restaurantName, campaignDescription, targetAudience, location, brandInfo, category, codeQuota, codeSettings, campaign } = req.body;
+    const { restaurantId, restaurantName, campaignDescription, targetAudience, location, brandInfo, category, codeQuota, codeSettings, campaign, offerType, offerDetails } = req.body;
 
     // JWT token'dan kullanıcı bilgilerini al ve EN GÜNCEL halini veritabanından çek
     let user = null;
@@ -565,6 +565,8 @@ router.post('/generate-banner', async (req, res) => {
       },
       status: 'active',
       approvalStatus: 'pending', // Admin onayı bekliyor
+      offerType: offerType || 'percentage',
+      offerDetails: offerDetails || {},
       codeQuota: {
         total: codeQuota || 10,
         used: 0,
@@ -1183,7 +1185,8 @@ router.post('/verify-customer-code', async (req, res) => {
       code,
       bannerId,
       userId: codeRecord.userId._id,
-      phone: codeRecord.userId.phone
+      phone: codeRecord.userId.phone,
+      billAmount: codeRecord.billAmount
     });
 
     res.json({
@@ -1194,7 +1197,10 @@ router.post('/verify-customer-code', async (req, res) => {
         bannerId: bannerId,
         customerPhone: codeRecord.userId.phone,
         customerName: codeRecord.userId.name,
-        usedAt: now
+        usedAt: now,
+        billAmount: codeRecord.billAmount,
+        offerType: banner.offerType,
+        offerDetails: banner.offerDetails
       }
     });
 

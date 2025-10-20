@@ -137,6 +137,43 @@ const bannerSchema = new mongoose.Schema({
     enum: ['campaign', 'event'],
     default: 'campaign'
   },
+  // Kampanya detayları - indirim/ikram/sabit fiyat
+  offerType: {
+    type: String,
+    enum: ['percentage', 'fixedPrice', 'freeItem'], // Yüzde indirim, Sabit fiyat, Bedava ürün
+    default: 'percentage'
+  },
+  offerDetails: {
+    // Yüzde indirim için
+    discountPercentage: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: null
+    },
+    // Sabit fiyat kampanyaları için
+    originalPrice: {
+      type: Number,
+      min: 0,
+      default: null
+    },
+    discountedPrice: {
+      type: Number,
+      min: 0,
+      default: null
+    },
+    // Bedava ürün kampanyaları için
+    freeItemName: {
+      type: String,
+      default: null,
+      trim: true
+    },
+    freeItemCondition: {
+      type: String,
+      default: null,
+      trim: true
+    }
+  },
   // Kod kotası bilgileri
   codeQuota: {
     total: {

@@ -22,6 +22,21 @@ const codeHistorySchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // Hesap tutarları
+  billAmount: {
+    originalAmount: {
+      type: Number,
+      default: null
+    },
+    discountedAmount: {
+      type: Number,
+      default: null
+    },
+    savedAmount: {
+      type: Number,
+      default: null
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now,

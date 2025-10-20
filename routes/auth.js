@@ -619,7 +619,7 @@ router.post('/generate-code', async (req, res) => {
   try {
     // Debug logları kaldırıldı - güvenlik için
     
-    const { phone, bannerId } = req.body;
+    const { phone, bannerId, billAmount } = req.body;
     
     if (!phone || !bannerId) {
       return res.status(400).json({
@@ -681,8 +681,43 @@ router.post('/generate-code', async (req, res) => {
           createdAt: existingCode.createdAt,
           expiresIn: '24 saat',
           isReused: true,
-          codeType: banner.codeSettings?.codeType || 'random'
+          codeType: banner.codeSettings?.codeType || 'random',
+          billAmount: existingCode.billAmount || null,
+          offerType: banner.offerType,
+          offerDetails: banner.offerDetails
         });
+      }
+
+      // Hesap tutarlarını hesapla
+      let calculatedBill = null;
+      
+      if (banner.offerType === 'percentage' && billAmount) {
+        // % İndirim hesaplama
+        const discountPercentage = banner.offerDetails?.discountPercentage || 0;
+        const originalAmount = parseFloat(billAmount);
+        const savedAmount = (originalAmount * discountPercentage) / 100;
+        const discountedAmount = originalAmount - savedAmount;
+        
+        calculatedBill = {
+          originalAmount: originalAmount,
+          discountedAmount: Math.round(discountedAmount * 100) / 100,
+          savedAmount: Math.round(savedAmount * 100) / 100
+        };
+        
+        console.log('💰 % İndirim hesaplandı:', calculatedBill);
+      } else if (banner.offerType === 'fixedPrice') {
+        // Sabit fiyat kampanyası - hesap tutarı gerekmez
+        calculatedBill = {
+          originalAmount: banner.offerDetails?.originalPrice || 0,
+          discountedAmount: banner.offerDetails?.discountedPrice || 0,
+          savedAmount: (banner.offerDetails?.originalPrice || 0) - (banner.offerDetails?.discountedPrice || 0)
+        };
+        
+        console.log('💰 Sabit fiyat:', calculatedBill);
+      } else if (banner.offerType === 'freeItem') {
+        // Bedava ürün - hesap tutarı yok
+        calculatedBill = null;
+        console.log('🎁 Bedava ürün kampanyası - hesap yok');
       }
 
       // Kod oluştur - Sabit veya Random
@@ -702,10 +737,17 @@ router.post('/generate-code', async (req, res) => {
         userId: user._id,
         phone: user.phone,
         bannerId: bannerId,
-        code: code
+        code: code,
+        billAmount: calculatedBill
       });
       
       await codeHistory.save();
+      
+      console.log('✅ Kod oluşturuldu ve kaydedildi:', {
+        code: code,
+        offerType: banner.offerType,
+        billAmount: calculatedBill
+      });
       
       res.json({
         success: true,
@@ -714,7 +756,10 @@ router.post('/generate-code', async (req, res) => {
         createdAt: codeHistory.createdAt,
         expiresIn: '24 saat',
         isReused: false,
-        codeType: banner.codeSettings?.codeType || 'random'
+        codeType: banner.codeSettings?.codeType || 'random',
+        billAmount: calculatedBill,
+        offerType: banner.offerType,
+        offerDetails: banner.offerDetails
       });
       
     } catch (jwtError) {
