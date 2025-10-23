@@ -316,9 +316,17 @@ router.post('/update-push-token', async (req, res) => {
 
   } catch (error) {
     console.error('Push token güncelleme hatası:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      phone: req.body?.phone,
+      expoPushToken: req.body?.expoPushToken ? 'Present' : 'Missing',
+      oneSignalExternalId: req.body?.oneSignalExternalId ? 'Present' : 'Missing'
+    });
     res.status(500).json({
       success: false,
-      message: 'Sunucu hatası'
+      message: 'Push token güncelleme hatası',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 });
