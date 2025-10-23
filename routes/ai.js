@@ -877,7 +877,9 @@ router.get('/banners/events', async (req, res) => {
       status: 'active', 
       contentType: 'event',
       approvalStatus: 'approved' // Sadece onaylanmış banner'lar
-    }).populate('restaurant');
+    })
+    .populate('restaurant')
+    .populate('brandProfile'); // Marka profilini de getir
     
     console.log('Backend: Found event banners:', eventBanners.length);
     

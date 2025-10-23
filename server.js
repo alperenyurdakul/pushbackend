@@ -20,6 +20,9 @@ app.use(express.urlencoded({ extended: true }));
 // Static files - uploads klasörü
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Dashboard static files
+app.use('/dashboard', express.static(path.join(__dirname, '../dashboard/build')));
+
 // Database connection - MongoDB
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -77,6 +80,11 @@ app.use((err, req, res, next) => {
     message: 'Sunucu hatası!',
     error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
   });
+});
+
+// Dashboard fallback route - React Router için
+app.get('/dashboard/*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../dashboard/build', 'index.html'));
 });
 
 // 404 handler

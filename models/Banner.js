@@ -80,7 +80,7 @@ const bannerSchema = new mongoose.Schema({
   // Banner kategorisi
   category: {
     type: String,
-    enum: ['Kahve', 'Yiyecek', 'Bar/Pub', 'Giyim', 'Kuaför', 'Spor', 'Çizim', 'Ebruli', 'Boyama', 'Çocuk Atölyesi'],
+    enum: ['Kahve', 'Yiyecek', 'Bar/Pub', 'Giyim', 'Kuaför', 'Spor', 'Tatlı', 'Mobilya', 'El Sanatları', 'Konser', 'Sinema', 'Tiyatro', 'Sosyal Etkinlik', 'Spor Etkinliği'],
     default: 'Kahve'
   },
   // Banner istatistikleri

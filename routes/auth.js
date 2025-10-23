@@ -104,7 +104,7 @@ router.post('/register', async (req, res) => {
     console.log('Method:', req.method);
     console.log('=======================');
     
-    const { phone, password, name, email, userType, category, city } = req.body;
+    const { phone, password, name, gender, email, userType, category, city } = req.body;
 
     if (!phone || !password || !name) {
       return res.status(400).json({
@@ -150,6 +150,7 @@ router.post('/register', async (req, res) => {
       phone,
       password,
       name,
+      gender: gender || null, // Cinsiyet (opsiyonel)
       email: email || null, // E-posta (opsiyonel, marka kayıtlarında zorunlu)
       userType: userType || 'customer',
       category: category || 'Kahve', // Kategori kayıt sırasında belirlenir
@@ -177,6 +178,7 @@ router.post('/register', async (req, res) => {
           id: user._id,
           phone: user.phone,
           name: user.name,
+          gender: user.gender,
           userType: user.userType,
           category: user.category,
           city: user.city,

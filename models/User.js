@@ -17,6 +17,11 @@ const userSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  gender: {
+    type: String,
+    enum: ['male', 'female'],
+    default: null
+  },
   userType: {
     type: String,
     enum: ['customer', 'brand', 'eventBrand', 'admin'],
@@ -58,7 +63,7 @@ const userSchema = new mongoose.Schema({
     },
     categories: [{
       type: String,
-      enum: ['Kahve', 'Yiyecek', 'Bar/Pub', 'Giyim', 'Kuaför', 'Spor', 'Çizim', 'Ebruli', 'Boyama', 'Çocuk Atölyesi']
+      enum: ['Kahve', 'Yiyecek', 'Bar/Pub', 'Giyim', 'Kuaför', 'Spor', 'Tatlı', 'Mobilya', 'El Sanatları', 'Konser', 'Sinema', 'Tiyatro', 'Sosyal Etkinlik', 'Spor Etkinliği']
     }]
   },
   // Marka profil bilgileri
@@ -79,7 +84,7 @@ const userSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['Kahve', 'Yiyecek', 'Bar/Pub', 'Giyim', 'Kuaför', 'Spor', 'Çizim', 'Ebruli', 'Boyama', 'Çocuk Atölyesi'],
+    enum: ['Kahve', 'Yiyecek', 'Bar/Pub', 'Giyim', 'Kuaför', 'Spor', 'Tatlı', 'Mobilya', 'El Sanatları', 'Konser', 'Sinema', 'Tiyatro', 'Sosyal Etkinlik', 'Spor Etkinliği'],
     default: 'Kahve'
   },
   address: {
