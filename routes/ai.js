@@ -295,7 +295,7 @@ router.get('/test', (req, res) => {
 // AI Banner oluşturma endpoint'i
 router.post('/generate-banner', async (req, res) => {
   try {
-    const { restaurantId, restaurantName, campaignDescription, targetAudience, location, brandInfo, category, codeQuota, codeSettings, campaign, offerType, offerDetails } = req.body;
+    const { restaurantId, restaurantName, campaignDescription, targetAudience, location, brandInfo, category, codeQuota, codeSettings, campaign, offerType, offerDetails, menu } = req.body;
 
     // JWT token'dan kullanıcı bilgilerini al ve EN GÜNCEL halini veritabanından çek
     let user = null;
@@ -554,6 +554,7 @@ router.post('/generate-banner', async (req, res) => {
         clicks: 0,
         conversions: 0
       },
+      menu: menu || { link: null, image: null },
       codeSettings: {
         codeType: codeSettings?.codeType || 'random',
         fixedCode: codeSettings?.codeType === 'fixed' ? codeSettings.fixedCode : null

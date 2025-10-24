@@ -26,6 +26,17 @@ const bannerSchema = new mongoose.Schema({
     type: String, // URL to generated banner image
     default: null
   },
+  // Menü bilgileri
+  menu: {
+    link: {
+      type: String, // Menü linki
+      default: null
+    },
+    image: {
+      type: String, // Menü görseli URL'si
+      default: null
+    }
+  },
   // Kampanya detayları
   campaign: {
     startDate: {
