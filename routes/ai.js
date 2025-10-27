@@ -751,7 +751,12 @@ router.get('/banners', async (req, res) => {
       }
     }
     
-    const banners = await Banner.find(query).populate('restaurant');
+    // Sadece gerekli fieldları getir
+    const banners = await Banner.find(query)
+      .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage')
+      .populate('restaurant', 'name logo')
+      .populate('brandProfile', 'logo city brandType')
+      .lean(); // JSON object döndür (hızlı)
     
     // Sadece belirtilen restoran'a ait banner'ları döndür
     const filteredBanners = restaurantName ? 
@@ -845,7 +850,12 @@ router.get('/banners/active', async (req, res) => {
       }
     }
     
-    const activeBanners = await Banner.find(query).populate('restaurant');
+    // Sadece gerekli fieldları getir
+    const activeBanners = await Banner.find(query)
+      .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage')
+      .populate('restaurant', 'name logo')
+      .populate('brandProfile', 'logo city brandType')
+      .lean(); // JSON object döndür (hızlı)
     
     console.log('Backend: Found banners:', activeBanners.length);
     console.log('Backend: Banner categories:', activeBanners.map(b => ({ 
@@ -879,8 +889,10 @@ router.get('/banners/events', async (req, res) => {
       contentType: 'event',
       approvalStatus: 'approved' // Sadece onaylanmış banner'lar
     })
-    .populate('restaurant')
-    .populate('brandProfile'); // Marka profilini de getir
+    .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage')
+    .populate('restaurant', 'name logo')
+    .populate('brandProfile', 'logo city brandType')
+    .lean(); // JSON object döndür (hızlı)
     
     console.log('Backend: Found event banners:', eventBanners.length);
     
