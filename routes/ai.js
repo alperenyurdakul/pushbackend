@@ -295,7 +295,7 @@ router.get('/test', (req, res) => {
 // AI Banner oluşturma endpoint'i
 router.post('/generate-banner', async (req, res) => {
   try {
-    const { restaurantId, restaurantName, campaignDescription, targetAudience, location, brandInfo, category, codeQuota, codeSettings, campaign, offerType, offerDetails, menu } = req.body;
+    const { restaurantId, restaurantName, campaignDescription, targetAudience, location, brandInfo, category, codeQuota, codeSettings, campaign, offerType, offerDetails, menu, bannerImage } = req.body;
 
     // JWT token'dan kullanıcı bilgilerini al ve EN GÜNCEL halini veritabanından çek
     let user = null;
@@ -528,7 +528,7 @@ router.post('/generate-banner', async (req, res) => {
       title: aiResponse.data.title,
       description: campaignDescription,
       aiGeneratedText: aiResponse.data.ai_generated_text,
-      bannerImage: aiResponse.data.banner_image, // AI'dan gelen görsel
+      bannerImage: bannerImage || aiResponse.data.banner_image, // Dashboard'dan gelen görsel veya AI'dan gelen görsel
       category: category || 'Kahve', // Kategori ekle
       contentType: contentType, // Etkinlik mi kampanya mı
       bannerLocation: {
