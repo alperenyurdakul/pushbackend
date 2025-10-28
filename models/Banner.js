@@ -88,11 +88,6 @@ const bannerSchema = new mongoose.Schema({
     district: String,
     address: String
   },
-  // Banner görseli
-  bannerImage: {
-    type: String, // Banner görseli URL'si veya base64
-    default: null
-  },
   // Banner kategorisi
   category: {
     type: String,

@@ -7,6 +7,7 @@ const User = require('../models/User');
 const fs = require('fs');
 const path = require('path');
 const OneSignalService = require('../services/oneSignalService');
+const { uploadBase64ToS3 } = require('../middleware/uploadS3');
 
 // Push notification tokens storage (gerçek projede Redis veya veritabanında saklanmalı)
 let notificationTokens = [];
@@ -522,13 +523,36 @@ router.post('/generate-banner', async (req, res) => {
     // Kullanıcının userType'ına göre contentType belirle
     const contentType = user?.userType === 'eventBrand' ? 'event' : 'campaign';
     
+    // Banner görseli - Base64 ise S3'e yükle
+    let finalBannerImage = null;
+    try {
+      if (bannerImage && bannerImage.startsWith('data:image/')) {
+        // Base64 görseli S3'e yükle
+        console.log('📤 Base64 görseli S3'e yükleniyor...');
+        finalBannerImage = await uploadBase64ToS3(bannerImage, 'banners');
+        console.log('✅ Görsel S3'e yüklendi:', finalBannerImage);
+      } else if (bannerImage && (bannerImage.startsWith('http://') || bannerImage.startsWith('https://'))) {
+        // Zaten tam URL ise direkt kullan
+        finalBannerImage = bannerImage;
+        console.log('✅ Görsel zaten URL:', finalBannerImage);
+      } else {
+        // AI'dan gelen görsel veya yok
+        finalBannerImage = aiResponse.data.banner_image || bannerImage;
+        console.log('ℹ️ Görsel AI\'dan veya yok');
+      }
+    } catch (imageError) {
+      console.error('❌ Banner görseli yüklenirken hata:', imageError);
+      // Hata durumunda AI'dan gelen görseli kullan
+      finalBannerImage = aiResponse.data.banner_image || null;
+    }
+    
     // Yeni banner oluştur
     const newBanner = new Banner({
       restaurant: restaurant._id,
       title: aiResponse.data.title,
       description: campaignDescription,
       aiGeneratedText: aiResponse.data.ai_generated_text,
-      bannerImage: bannerImage || aiResponse.data.banner_image, // Dashboard'dan gelen görsel veya AI'dan gelen görsel
+      bannerImage: finalBannerImage, // S3'e yüklenmiş veya hazır URL
       category: category || 'Kahve', // Kategori ekle
       contentType: contentType, // Etkinlik mi kampanya mı
       bannerLocation: {
