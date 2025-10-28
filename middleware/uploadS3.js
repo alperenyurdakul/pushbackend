@@ -77,7 +77,6 @@ const uploadBase64ToS3 = async (base64Data, folder = 'banners') => {
 };
 
 module.exports = uploadS3;
-module.exports.uploadS3 = uploadS3;
 module.exports.uploadBase64ToS3 = uploadBase64ToS3;
 
 

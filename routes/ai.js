@@ -876,7 +876,7 @@ router.get('/banners/active', async (req, res) => {
     
     // Sadece gerekli fieldları getir - En yeni kampanyalar önce
     const activeBanners = await Banner.find(query)
-      .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage startDate endDate')
+      .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage campaign startDate endDate')
       .populate('restaurant', 'name logo address')
       .populate('brandProfile', 'logo city brandType address')
       .sort({ createdAt: -1 }) // En yeni önce
@@ -890,6 +890,11 @@ router.get('/banners/active', async (req, res) => {
       contentType: b.contentType,
       restaurant: b.restaurant?.name 
     })));
+    
+    // Debug: İlk banner'ın campaign verisini logla
+    if (activeBanners.length > 0) {
+      console.log('🔍 İlk banner campaign verisi:', JSON.stringify(activeBanners[0].campaign, null, 2));
+    }
     
     res.json({
       success: true,
@@ -914,13 +919,18 @@ router.get('/banners/events', async (req, res) => {
       contentType: 'event',
       approvalStatus: 'approved' // Sadece onaylanmış banner'lar
     })
-    .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage startDate endDate eventDate eventEndDate')
+    .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage campaign startDate endDate eventDate eventEndDate')
     .populate('restaurant', 'name logo address')
     .populate('brandProfile', 'logo city brandType address')
     .sort({ createdAt: -1 }) // En yeni önce
     .lean(); // JSON object döndür (hızlı)
     
     console.log('Backend: Found event banners:', eventBanners.length);
+    
+    // Debug: İlk banner'ın campaign verisini logla
+    if (eventBanners.length > 0) {
+      console.log('🔍 İlk event banner campaign verisi:', JSON.stringify(eventBanners[0].campaign, null, 2));
+    }
     
     res.json({
       success: true,
