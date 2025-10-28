@@ -850,11 +850,12 @@ router.get('/banners/active', async (req, res) => {
       }
     }
     
-    // Sadece gerekli fieldları getir
+    // Sadece gerekli fieldları getir - En yeni kampanyalar önce
     const activeBanners = await Banner.find(query)
-      .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage')
-      .populate('restaurant', 'name logo')
-      .populate('brandProfile', 'logo city brandType')
+      .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage startDate endDate')
+      .populate('restaurant', 'name logo address')
+      .populate('brandProfile', 'logo city brandType address')
+      .sort({ createdAt: -1 }) // En yeni önce
       .lean(); // JSON object döndür (hızlı)
     
     console.log('Backend: Found banners:', activeBanners.length);
@@ -883,15 +884,16 @@ router.get('/banners/active', async (req, res) => {
 // Etkinlik banner'larını getir (Sadece onaylanmış)
 router.get('/banners/events', async (req, res) => {
   try {
-    // Sadece event tipindeki VE ONAYLANMIŞ banner'ları getir
+    // Sadece event tipindeki VE ONAYLANMIŞ banner'ları getir - En yeni etkinlikler önce
     const eventBanners = await Banner.find({ 
       status: 'active', 
       contentType: 'event',
       approvalStatus: 'approved' // Sadece onaylanmış banner'lar
     })
-    .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage')
-    .populate('restaurant', 'name logo')
-    .populate('brandProfile', 'logo city brandType')
+    .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage startDate endDate eventDate eventEndDate')
+    .populate('restaurant', 'name logo address')
+    .populate('brandProfile', 'logo city brandType address')
+    .sort({ createdAt: -1 }) // En yeni önce
     .lean(); // JSON object döndür (hızlı)
     
     console.log('Backend: Found event banners:', eventBanners.length);
