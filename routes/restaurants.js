@@ -230,6 +230,20 @@ router.post('/:id/reviews', async (req, res) => {
 
     await review.save();
 
+    // Update restaurant's average rating
+    const allReviews = await RestaurantReview.find({ 
+      restaurant: restaurantId,
+      status: 'approved'
+    });
+    
+    const totalRating = allReviews.reduce((sum, r) => sum + r.rating, 0);
+    const averageRating = allReviews.length > 0 ? totalRating / allReviews.length : 0;
+    
+    await Restaurant.findByIdAndUpdate(restaurantId, {
+      averageRating,
+      totalReviews: allReviews.length
+    });
+
     res.status(201).json({
       success: true,
       message: 'Yorum başarıyla eklendi!',

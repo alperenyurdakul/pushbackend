@@ -877,7 +877,7 @@ router.get('/banners/active', async (req, res) => {
     // Sadece gerekli fieldları getir - En yeni kampanyalar önce
     const activeBanners = await Banner.find(query)
       .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage campaign startDate endDate')
-      .populate('restaurant', 'name logo address')
+      .populate('restaurant', 'name logo address averageRating totalReviews')
       .populate('brandProfile', 'logo city brandType address')
       .sort({ createdAt: -1 }) // En yeni önce
       .lean(); // JSON object döndür (hızlı)
@@ -920,7 +920,7 @@ router.get('/banners/events', async (req, res) => {
       approvalStatus: 'approved' // Sadece onaylanmış banner'lar
     })
     .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage campaign startDate endDate eventDate eventEndDate')
-    .populate('restaurant', 'name logo address')
+    .populate('restaurant', 'name logo address averageRating totalReviews')
     .populate('brandProfile', 'logo city brandType address')
     .sort({ createdAt: -1 }) // En yeni önce
     .lean(); // JSON object döndür (hızlı)
