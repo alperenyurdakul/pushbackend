@@ -528,9 +528,9 @@ router.post('/generate-banner', async (req, res) => {
     try {
       if (bannerImage && bannerImage.startsWith('data:image/')) {
         // Base64 görseli S3'e yükle
-        console.log('📤 Base64 görseli S3'e yükleniyor...');
+        console.log('📤 Base64 görseli S3e yükleniyor...');
         finalBannerImage = await uploadBase64ToS3(bannerImage, 'banners');
-        console.log('✅ Görsel S3'e yüklendi:', finalBannerImage);
+        console.log('✅ Görsel S3e yüklendi:', finalBannerImage);
       } else if (bannerImage && (bannerImage.startsWith('http://') || bannerImage.startsWith('https://'))) {
         // Zaten tam URL ise direkt kullan
         finalBannerImage = bannerImage;
@@ -538,7 +538,7 @@ router.post('/generate-banner', async (req, res) => {
       } else {
         // AI'dan gelen görsel veya yok
         finalBannerImage = aiResponse.data.banner_image || bannerImage;
-        console.log('ℹ️ Görsel AI\'dan veya yok');
+        console.log('ℹ️ Görsel AIdan veya yok');
       }
     } catch (imageError) {
       console.error('❌ Banner görseli yüklenirken hata:', imageError);

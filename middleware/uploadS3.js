@@ -67,7 +67,7 @@ const uploadBase64ToS3 = async (base64Data, folder = 'banners') => {
     // Public URL oluştur
     const publicUrl = `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
     
-    console.log(`✅ Base64 görsel S3'e yüklendi: ${publicUrl}`);
+    console.log(`✅ Base64 görsel S3e yüklendi: ${publicUrl}`);
     
     return publicUrl;
   } catch (error) {
