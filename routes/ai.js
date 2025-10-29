@@ -296,7 +296,7 @@ router.get('/test', (req, res) => {
 // AI Banner oluşturma endpoint'i
 router.post('/generate-banner', async (req, res) => {
   try {
-    const { restaurantId, restaurantName, campaignDescription, targetAudience, location, brandInfo, category, codeQuota, codeSettings, campaign, offerType, offerDetails, menu, bannerImage } = req.body;
+    const { restaurantId, restaurantName, title, campaignDescription, targetAudience, location, brandInfo, category, codeQuota, codeSettings, campaign, offerType, offerDetails, menu, bannerImage } = req.body;
 
     // JWT token'dan kullanıcı bilgilerini al ve EN GÜNCEL halini veritabanından çek
     let user = null;
@@ -360,6 +360,13 @@ router.post('/generate-banner', async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Restoran ID veya Restoran adı gerekli!'
+      });
+    }
+
+    if (!title) {
+      return res.status(400).json({
+        success: false,
+        message: 'Kampanya başlığı gerekli!'
       });
     }
 
@@ -549,7 +556,7 @@ router.post('/generate-banner', async (req, res) => {
     // Yeni banner oluştur
     const newBanner = new Banner({
       restaurant: restaurant._id,
-      title: aiResponse.data.title,
+      title: title || aiResponse.data.title,
       description: campaignDescription,
       aiGeneratedText: aiResponse.data.ai_generated_text,
       bannerImage: finalBannerImage, // S3'e yüklenmiş veya hazır URL
@@ -876,7 +883,7 @@ router.get('/banners/active', async (req, res) => {
     
     // Sadece gerekli fieldları getir - En yeni kampanyalar önce
     const activeBanners = await Banner.find(query)
-      .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage campaign startDate endDate')
+      .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage campaign startDate endDate codeQuota')
       .populate('restaurant', 'name logo address averageRating totalReviews')
       .populate('brandProfile', 'logo city brandType address')
       .sort({ createdAt: -1 }) // En yeni önce
@@ -919,7 +926,7 @@ router.get('/banners/events', async (req, res) => {
       contentType: 'event',
       approvalStatus: 'approved' // Sadece onaylanmış banner'lar
     })
-    .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage campaign startDate endDate eventDate eventEndDate')
+    .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage campaign startDate endDate eventDate eventEndDate codeQuota')
     .populate('restaurant', 'name logo address averageRating totalReviews')
     .populate('brandProfile', 'logo city brandType address')
     .sort({ createdAt: -1 }) // En yeni önce
