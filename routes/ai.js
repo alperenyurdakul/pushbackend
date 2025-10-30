@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const mongoose = require('mongoose');
 const Banner = require('../models/Banner');
 const Restaurant = require('../models/Restaurant');
 const User = require('../models/User');
@@ -1193,9 +1194,18 @@ router.post('/verify-customer-code', async (req, res) => {
     // CodeHistory modelini import et
     const CodeHistory = require('../models/CodeHistory');
     
+    // bannerId'yi ObjectId'ye çevir
+    let bannerObjectId;
+    try {
+      bannerObjectId = mongoose.Types.ObjectId.isValid(bannerId) ? new mongoose.Types.ObjectId(bannerId) : bannerId;
+    } catch (error) {
+      console.error('❌ BannerId ObjectId dönüşümü başarısız:', error);
+      bannerObjectId = bannerId;
+    }
+    
     // Kodu ara
     const codeRecord = await CodeHistory.findOne({
-      bannerId: bannerId,
+      bannerId: bannerObjectId,
       code: code,
       used: false
     }).populate('userId', 'phone name');
@@ -1224,7 +1234,7 @@ router.post('/verify-customer-code', async (req, res) => {
     await codeRecord.save();
 
     // Banner'ın istatistiklerini ve kota bilgisini güncelle
-    const banner = await Banner.findById(bannerId);
+    const banner = await Banner.findById(bannerObjectId);
     if (banner) {
       banner.stats.conversions += 1;
       banner.codeQuota.used += 1;
@@ -1241,7 +1251,7 @@ router.post('/verify-customer-code', async (req, res) => {
 
     console.log('Müşteri kodu doğrulandı:', {
       code,
-      bannerId,
+      bannerId: bannerObjectId,
       userId: codeRecord.userId._id,
       phone: codeRecord.userId.phone,
       billAmount: codeRecord.billAmount
@@ -1252,7 +1262,7 @@ router.post('/verify-customer-code', async (req, res) => {
       message: 'Kod başarıyla doğrulandı ve indirim uygulandı!',
       data: {
         code: code,
-        bannerId: bannerId,
+        bannerId: bannerObjectId,
         customerPhone: codeRecord.userId.phone,
         customerName: codeRecord.userId.name,
         usedAt: now,
