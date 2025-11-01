@@ -84,7 +84,7 @@ const userSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['Kahve', 'Yiyecek', 'Bar/Pub', 'Giyim', 'Kuaför', 'Spor', 'Tatlı', 'Mobilya', 'El Sanatları', 'Çizim', 'Boyama', 'Konser', 'Sinema', 'Tiyatro', 'Sosyal Etkinlik', 'Spor Etkinliği', 'Market'],
+    enum: ['Kahve', 'Yiyecek', 'Bar/Pub', 'Giyim', 'Kuaför', 'Spor', 'Tatlı', 'Mobilya', 'El Sanatları', 'Çizim', 'Boyama', 'Konser', 'Sinema', 'Tiyatro', 'Sosyal Etkinlik', 'Spor Etkinliği'],
     default: 'Kahve'
   },
   address: {
