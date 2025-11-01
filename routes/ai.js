@@ -1293,8 +1293,7 @@ router.post('/verify-customer-code', async (req, res) => {
             bannerId: bannerObjectId.toString(),
             billAmount: billAmount,
             bannerTitle: banner.title
-          },
-          true // Silent notification
+          }
         );
         console.log('✅ OneSignal bildirimi gönderildi:', customerUser.phone);
       } else {
@@ -1367,6 +1366,76 @@ router.post('/test-notification', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Test bildirimi gönderilemedi',
+      error: error.message
+    });
+  }
+});
+
+// Yorum ve puanlama ekleme endpoint'i
+router.post('/add-review', async (req, res) => {
+  try {
+    const { bannerId, userId, userName, rating, comment } = req.body;
+
+    // Validation
+    if (!bannerId || !userId || !userName || !rating) {
+      return res.status(400).json({
+        success: false,
+        message: 'Banner ID, User ID, User Name ve Rating zorunludur'
+      });
+    }
+
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rating 1-5 arasında olmalıdır'
+      });
+    }
+
+    // Banner'ı bul
+    const bannerObjectId = mongoose.Types.ObjectId.isValid(bannerId) 
+      ? new mongoose.Types.ObjectId(bannerId) 
+      : null;
+    
+    if (!bannerObjectId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Geçersiz Banner ID'
+      });
+    }
+
+    const banner = await Banner.findById(bannerObjectId);
+    
+    if (!banner) {
+      return res.status(404).json({
+        success: false,
+        message: 'Banner bulunamadı'
+      });
+    }
+
+    // Yeni yorum ekle
+    banner.reviews.push({
+      userId: userId,
+      userName: userName,
+      rating: rating,
+      comment: comment || ''
+    });
+
+    await banner.save();
+
+    console.log('✅ Yorum eklendi:', { bannerId, userName, rating });
+
+    res.json({
+      success: true,
+      message: 'Yorumunuz başarıyla eklendi',
+      data: {
+        reviews: banner.reviews
+      }
+    });
+  } catch (error) {
+    console.error('❌ Yorum ekleme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Yorum eklenirken bir hata oluştu',
       error: error.message
     });
   }
