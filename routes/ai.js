@@ -1275,6 +1275,35 @@ router.post('/verify-customer-code', async (req, res) => {
       billAmount: codeRecord.billAmount
     });
 
+    // Kullanıcıya OneSignal notification gönder
+    try {
+      const customerUser = await User.findById(codeRecord.userId._id);
+      if (customerUser && customerUser.oneSignalExternalId) {
+        const billAmount = codeRecord.billAmount;
+        const message = billAmount 
+          ? `Kodunuz doğrulandı! Hesap: ${billAmount.originalAmount} TL, Ödenecek: ${billAmount.discountedAmount} TL`
+          : 'Kodunuz başarıyla doğrulandı!';
+        
+        await OneSignalService.sendToUser(
+          customerUser.oneSignalExternalId,
+          'Kod Doğrulandı ✅',
+          message,
+          {
+            type: 'code_verified',
+            bannerId: bannerObjectId.toString(),
+            billAmount: billAmount,
+            bannerTitle: banner.title
+          }
+        );
+        console.log('✅ OneSignal bildirimi gönderildi:', customerUser.phone);
+      } else {
+        console.log('⚠️ Kullanıcı OneSignal ID bulunamadı:', codeRecord.userId.phone);
+      }
+    } catch (notificationError) {
+      console.error('❌ OneSignal bildirim hatası:', notificationError);
+      // Notification hatası kod doğrulamayı engellemesin
+    }
+
     res.json({
       success: true,
       message: 'Kod başarıyla doğrulandı ve indirim uygulandı!',
