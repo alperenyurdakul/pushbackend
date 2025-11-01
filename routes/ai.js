@@ -1182,7 +1182,7 @@ router.post('/create-test-code', async (req, res) => {
 // Müşteri kodunu doğrula (Dashboard'dan)
 router.post('/verify-customer-code', async (req, res) => {
   try {
-    const { code, bannerId } = req.body;
+    const { code, bannerId, billAmount } = req.body;
     
     if (!code || !bannerId) {
       return res.status(400).json({
@@ -1209,6 +1209,24 @@ router.post('/verify-customer-code', async (req, res) => {
       code: code,
       used: false
     }).populate('userId', 'phone name');
+    
+    // Eğer billAmount geldiyse ve codeRecord varsa billAmount'u güncelle
+    if (billAmount && codeRecord) {
+      const banner = await Banner.findById(bannerObjectId);
+      if (banner && banner.offerType === 'percentage') {
+        const discountPercentage = banner.offerDetails?.discountPercentage || 0;
+        const originalAmount = parseFloat(billAmount);
+        const savedAmount = (originalAmount * discountPercentage) / 100;
+        const discountedAmount = originalAmount - savedAmount;
+        
+        codeRecord.billAmount = {
+          originalAmount: originalAmount,
+          discountedAmount: Math.round(discountedAmount * 100) / 100,
+          savedAmount: Math.round(savedAmount * 100) / 100
+        };
+        await codeRecord.save();
+      }
+    }
 
     if (!codeRecord) {
       return res.status(400).json({
