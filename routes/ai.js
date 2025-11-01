@@ -785,7 +785,7 @@ router.get('/banners', async (req, res) => {
     
     // Sadece gerekli fieldları getir
     const banners = await Banner.find(query)
-      .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage')
+      .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage codeQuota')
       .populate('restaurant', 'name logo')
       .populate('brandProfile', 'logo city brandType')
       .lean(); // JSON object döndür (hızlı)
