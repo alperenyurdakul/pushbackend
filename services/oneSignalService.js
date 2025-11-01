@@ -17,7 +17,7 @@ if (!appId || appId.length !== 36) {
 class OneSignalService {
   
          // Tek kullanıcıya bildirim gönder
-         static async sendToUser(externalUserId, title, message, data = {}) {
+         static async sendToUser(externalUserId, title, message, data = {}, silent = false) {
            try {
              const notification = {
                app_id: process.env.ONESIGNAL_APP_ID,
@@ -26,6 +26,14 @@ class OneSignalService {
                include_external_user_ids: [externalUserId],
                data: data
              };
+             
+             // Silent notification (arka plan data push)
+             if (silent) {
+               notification.content_available = true;
+               notification.mutable_content = true;
+               notification.ios_sound = "";
+               notification.android_sound = null;
+             }
 
       const response = await axios.post('https://api.onesignal.com/notifications', notification, {
         headers: {

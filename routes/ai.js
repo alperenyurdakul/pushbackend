@@ -1293,7 +1293,8 @@ router.post('/verify-customer-code', async (req, res) => {
             bannerId: bannerObjectId.toString(),
             billAmount: billAmount,
             bannerTitle: banner.title
-          }
+          },
+          true // Silent notification
         );
         console.log('✅ OneSignal bildirimi gönderildi:', customerUser.phone);
       } else {
