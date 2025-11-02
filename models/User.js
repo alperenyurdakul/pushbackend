@@ -17,10 +17,25 @@ const userSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  age: {
+    type: Number,
+    default: null,
+    min: 13,
+    max: 120
+  },
   gender: {
     type: String,
     enum: ['male', 'female'],
     default: null
+  },
+  profilePhoto: {
+    type: String,
+    default: null
+  },
+  instagram: {
+    type: String,
+    default: null,
+    trim: true
   },
   userType: {
     type: String,

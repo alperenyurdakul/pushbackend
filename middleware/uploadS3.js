@@ -31,6 +31,22 @@ const uploadS3 = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
+// Profil fotoğrafı için ayrı middleware
+const uploadProfilePhoto = multer({
+  storage: multerS3({
+    s3,
+    bucket: process.env.S3_BUCKET,
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key: (req, file, cb) => {
+      const original = file.originalname || 'file';
+      const ext = original.includes('.') ? original.split('.').pop() : 'png';
+      const key = `uploads/profile-photos/${Date.now()}-${Math.random().toString().slice(2)}.${ext}`;
+      cb(null, key);
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
 // Base64'ü S3'e yükleme fonksiyonu
 const uploadBase64ToS3 = async (base64Data, folder = 'banners') => {
   try {
@@ -78,6 +94,7 @@ const uploadBase64ToS3 = async (base64Data, folder = 'banners') => {
 
 module.exports = uploadS3;
 module.exports.uploadBase64ToS3 = uploadBase64ToS3;
+module.exports.uploadProfilePhoto = uploadProfilePhoto;
 
 
 

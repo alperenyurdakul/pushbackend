@@ -1,5 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const uploadS3 = require('../middleware/uploadS3');
+const { uploadProfilePhoto } = require('../middleware/uploadS3');
 const User = require('../models/User');
 
 // Test endpoint
@@ -29,6 +34,42 @@ router.get('/:id', async (req, res) => {
 
     res.json(user);
   } catch (error) {
+    res.status(500).json({ message: 'Sunucu hatası!' });
+  }
+});
+
+// Update user profile
+router.put('/:id/profile', uploadProfilePhoto.single('profilePhoto'), async (req, res) => {
+  try {
+    const { age, instagram } = req.body;
+    
+    const user = await User.findById(req.params.id);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı!' });
+    }
+
+    // Update user fields
+    if (age) user.age = parseInt(age);
+    if (instagram) user.instagram = instagram;
+    
+    // Profile photo güncellenmişse ekle
+    if (req.file) {
+      const key = req.file.key || req.file.location || req.file.path;
+      const base = process.env.CDN_BASE_URL || `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com`;
+      const url = req.file.location || `${base}/${key}`;
+      user.profilePhoto = url;
+    }
+    
+    await user.save();
+    
+    res.json({ 
+      success: true,
+      message: 'Profil güncellendi!', 
+      user: user 
+    });
+  } catch (error) {
+    console.error('Profil güncelleme hatası:', error);
     res.status(500).json({ message: 'Sunucu hatası!' });
   }
 });

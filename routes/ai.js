@@ -902,6 +902,8 @@ router.get('/banners/active', async (req, res) => {
     // Debug: İlk banner'ın campaign verisini logla
     if (activeBanners.length > 0) {
       console.log('🔍 İlk banner campaign verisi:', JSON.stringify(activeBanners[0].campaign, null, 2));
+      console.log('📍 İlk banner restaurant address:', JSON.stringify(activeBanners[0].restaurant?.address, null, 2));
+      console.log('📍 İlk banner restaurant coordinates:', activeBanners[0].restaurant?.address?.coordinates);
     }
     
     res.json({
