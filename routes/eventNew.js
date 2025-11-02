@@ -48,7 +48,7 @@ const isAdmin = async (req, res, next) => {
 // ========== ETKINLIK OLUŞTURMA ==========
 router.post('/create', authenticateToken, async (req, res) => {
   try {
-    const { title, description, category, startDate, endDate, location, participantLimit, bannerImage } = req.body;
+    const { title, description, category, startDate, endDate, location, address, participantLimit, bannerImage } = req.body;
     
     // Kullanıcı bilgilerini al
     const user = await User.findById(req.userId);
@@ -74,6 +74,7 @@ router.post('/create', authenticateToken, async (req, res) => {
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       location,
+      address: address || {},
       participantLimit: participantLimit ? parseInt(participantLimit) : null,
       bannerImage: bannerImageUrl,
       approvalStatus: 'pending', // Admin onayı için pending
@@ -392,6 +393,16 @@ router.post('/:id/qr-verify', authenticateToken, async (req, res) => {
     participant.qrVerifiedAt = new Date();
     
     await event.save();
+    
+    // Kullanıcının istatistiklerini güncelle
+    const participantUserId = participant.userId?._id || participant.userId;
+    if (participantUserId) {
+      const participantUser = await User.findById(participantUserId);
+      if (participantUser) {
+        participantUser.statistics.attendedEventsCount = (participantUser.statistics.attendedEventsCount || 0) + 1;
+        await participantUser.save();
+      }
+    }
     
     res.json({
       success: true,

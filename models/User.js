@@ -131,6 +131,21 @@ const userSchema = new mongoose.Schema({
       default: 'restaurant'
     }
   },
+  // İstatistikler
+  statistics: {
+    attendedEventsCount: {
+      type: Number,
+      default: 0
+    },
+    usedCampaignsCount: {
+      type: Number,
+      default: 0
+    },
+    totalSavings: {
+      type: Number,
+      default: 0
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now
