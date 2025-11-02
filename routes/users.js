@@ -33,6 +33,16 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Kullanıcı bulunamadı!' });
     }
 
+    // Eski kullanıcılar için statistics varsa null veya undefined olabilir, default değerleri ata
+    if (!user.statistics) {
+      user.statistics = {
+        attendedEventsCount: 0,
+        usedCampaignsCount: 0,
+        totalSavings: 0
+      };
+      await user.save();
+    }
+
     res.json(user);
   } catch (error) {
     res.status(500).json({ message: 'Sunucu hatası!' });
