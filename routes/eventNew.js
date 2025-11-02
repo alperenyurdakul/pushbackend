@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Event = require('../models/Event');
 const User = require('../models/User');
+const EventReview = require('../models/EventReview');
 const multer = require('multer');
 const path = require('path');
 const uploadS3 = require('../middleware/uploadS3');
@@ -435,6 +436,108 @@ router.get('/my-events/participating', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Katılımcı etkinlikler hatası:', error);
     res.status(500).json({ success: false, message: 'Etkinlikler getirilirken hata oluştu' });
+  }
+});
+
+// ========== EVENT REVIEW ENDPOINTS ==========
+
+// Post event review
+router.post('/:id/review', authenticateToken, async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+    const event = await Event.findById(req.params.id);
+    const user = await User.findById(req.userId);
+    
+    if (!event) {
+      return res.status(404).json({ success: false, message: 'Etkinlik bulunamadı' });
+    }
+    
+    // Sadece etkinliğe katılmış (attended) kullanıcılar yorum yapabilir
+    const participant = event.participants.find(p => {
+      const userId = p.userId._id || p.userId.id || p.userId;
+      return userId.toString() === user._id.toString() && p.status === 'attended';
+    });
+    
+    if (!participant) {
+      return res.status(403).json({ success: false, message: 'Sadece etkinliğe katılan kullanıcılar yorum yapabilir' });
+    }
+    
+    // Daha önce yorum yapmış mı kontrol et
+    const existingReview = await EventReview.findOne({
+      event: event._id,
+      user: user._id
+    });
+    
+    if (existingReview) {
+      return res.status(400).json({ success: false, message: 'Bu etkinlik için zaten yorum yaptınız' });
+    }
+    
+    // Yorum oluştur
+    const review = new EventReview({
+      event: event._id,
+      organizerId: event.organizerId,
+      eventTitle: event.title,
+      eventDescription: event.description,
+      user: user._id,
+      userPhone: user.phone,
+      userName: user.name,
+      userProfilePhoto: user.profilePhoto,
+      rating: parseInt(rating),
+      comment: comment || '',
+      status: 'approved'
+    });
+    
+    await review.save();
+    
+    res.json({
+      success: true,
+      message: 'Yorumunuz başarıyla eklendi',
+      review
+    });
+  } catch (error) {
+    console.error('Yorum ekleme hatası:', error);
+    res.status(500).json({ success: false, message: 'Yorum eklenirken hata oluştu' });
+  }
+});
+
+// Get event reviews
+router.get('/:id/reviews', async (req, res) => {
+  try {
+    const reviews = await EventReview.find({
+      event: req.params.id,
+      status: 'approved'
+    })
+      .populate('user', 'name phone profilePhoto')
+      .sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      reviews
+    });
+  } catch (error) {
+    console.error('Yorumlar getirme hatası:', error);
+    res.status(500).json({ success: false, message: 'Yorumlar getirilirken hata oluştu' });
+  }
+});
+
+// Get organizer's event reviews (for profile history)
+router.get('/organizer/:organizerId/reviews', async (req, res) => {
+  try {
+    const reviews = await EventReview.find({
+      organizerId: req.params.organizerId,
+      status: 'approved'
+    })
+      .populate('user', 'name phone profilePhoto')
+      .populate('event')
+      .sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      reviews
+    });
+  } catch (error) {
+    console.error('Organizer yorumları hatası:', error);
+    res.status(500).json({ success: false, message: 'Yorumlar getirilirken hata oluştu' });
   }
 });
 
