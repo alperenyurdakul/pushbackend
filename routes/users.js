@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const mongoose = require('mongoose');
 const uploadS3 = require('../middleware/uploadS3');
 const { uploadProfilePhoto } = require('../middleware/uploadS3');
 const User = require('../models/User');
@@ -43,10 +44,15 @@ router.put('/:id/profile', uploadProfilePhoto.single('profilePhoto'), async (req
   try {
     const { age, instagram } = req.body;
     
+    // ObjectId doğrulama
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Geçersiz kullanıcı ID!' });
+    }
+    
     const user = await User.findById(req.params.id);
     
     if (!user) {
-      return res.status(404).json({ message: 'Kullanıcı bulunamadı!' });
+      return res.status(404).json({ success: false, message: 'Kullanıcı bulunamadı!' });
     }
 
     // Update user fields
