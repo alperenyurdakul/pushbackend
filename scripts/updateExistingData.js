@@ -6,10 +6,7 @@ require('dotenv').config();
 async function updateExistingData() {
   try {
     // MongoDB'ye bağlan
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/faydana', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/faydana');
     
     console.log('🔗 MongoDB bağlantısı başarılı');
 

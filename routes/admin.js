@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Banner = require('../models/Banner');
+const Event = require('../models/Event');
 const OneSignalService = require('../services/oneSignalService');
 
 // Admin middleware
@@ -377,6 +378,152 @@ router.get('/stats', adminAuth, async (req, res) => {
   }
 });
 
+// ========== EVENT ADMIN ROUTES ==========
+
+// Bekleyen event'leri listele
+router.get('/events/pending', adminAuth, async (req, res) => {
+  try {
+    const pendingEvents = await Event.find({ 
+      approvalStatus: 'pending' 
+    })
+    .populate('organizerId', 'name phone email')
+    .sort({ createdAt: -1 }); // En yeni önce
+
+    console.log(`📋 ${pendingEvents.length} adet bekleyen event bulundu`);
+
+    res.json({
+      success: true,
+      data: pendingEvents,
+      count: pendingEvents.length
+    });
+  } catch (error) {
+    console.error('Pending events listeleme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Event\'ler listelenirken hata oluştu!'
+    });
+  }
+});
+
+// Event'i onayla
+router.post('/events/:id/approve', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const event = await Event.findById(id).populate('organizerId', 'name phone email');
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event bulunamadı!'
+      });
+    }
+
+    event.approvalStatus = 'approved';
+    event.approvedAt = new Date();
+    event.status = 'upcoming';
+    await event.save();
+
+    console.log(`✅ Event onaylandı: ${event.title}`);
+
+    res.json({
+      success: true,
+      message: 'Event başarıyla onaylandı!',
+      data: event
+    });
+  } catch (error) {
+    console.error('Event onaylama hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Event onaylanırken hata oluştu!'
+    });
+  }
+});
+
+// Event'i reddet
+router.post('/events/:id/reject', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const event = await Event.findById(id).populate('organizerId', 'name phone email');
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event bulunamadı!'
+      });
+    }
+
+    event.approvalStatus = 'rejected';
+    event.rejectedAt = new Date();
+    event.rejectedReason = reason || 'Admin tarafından reddedildi';
+    await event.save();
+
+    console.log(`❌ Event reddedildi: ${event.title}`);
+
+    res.json({
+      success: true,
+      message: 'Event reddedildi!',
+      data: event
+    });
+  } catch (error) {
+    console.error('Event reddetme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Event reddedilirken hata oluştu!'
+    });
+  }
+});
+
+// Onaylanmış event'leri listele
+router.get('/events/approved', adminAuth, async (req, res) => {
+  try {
+    const approvedEvents = await Event.find({ 
+      approvalStatus: 'approved' 
+    })
+    .populate('organizerId', 'name phone email')
+    .sort({ approvedAt: -1 }); // En yeni önce
+
+    console.log(`✅ ${approvedEvents.length} adet onaylanmış event bulundu`);
+
+    res.json({
+      success: true,
+      data: approvedEvents,
+      count: approvedEvents.length
+    });
+  } catch (error) {
+    console.error('Approved events listeleme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Event\'ler listelenirken hata oluştu!'
+    });
+  }
+});
+
+// Reddedilmiş event'leri listele
+router.get('/events/rejected', adminAuth, async (req, res) => {
+  try {
+    const rejectedEvents = await Event.find({ 
+      approvalStatus: 'rejected' 
+    })
+    .populate('organizerId', 'name phone email')
+    .sort({ rejectedAt: -1 }); // En yeni önce
+
+    console.log(`❌ ${rejectedEvents.length} adet reddedilmiş event bulundu`);
+
+    res.json({
+      success: true,
+      data: rejectedEvents,
+      count: rejectedEvents.length
+    });
+  } catch (error) {
+    console.error('Rejected events listeleme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Event\'ler listelenirken hata oluştu!'
+    });
+  }
+});
+
 console.log('🔧 Admin Routes kayıtlı:');
 console.log('  - POST /admin/login');
 console.log('  - GET /admin/banners/pending');
@@ -386,6 +533,11 @@ console.log('  - GET /admin/banners/approved');
 console.log('  - GET /admin/banners/rejected');
 console.log('  - GET /admin/banners');
 console.log('  - GET /admin/stats');
+console.log('  - GET /admin/events/pending');
+console.log('  - POST /admin/events/:id/approve');
+console.log('  - POST /admin/events/:id/reject');
+console.log('  - GET /admin/events/approved');
+console.log('  - GET /admin/events/rejected');
 
 module.exports = router;
 
