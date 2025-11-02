@@ -425,9 +425,41 @@ router.post('/events/:id/approve', adminAuth, async (req, res) => {
 
     console.log(`✅ Event onaylandı: ${event.title}`);
 
+    // Onaylandıktan sonra bildirim gönder
+    try {
+      console.log('📱 Onaylanan event için bildirim gönderiliyor...');
+      
+      // location stringinden şehir bilgisini çıkar (örn: "İstanbul, Kadıköy" -> "İstanbul")
+      let eventCity = null;
+      if (event.location && typeof event.location === 'string') {
+        const locationParts = event.location.split(',').map(part => part.trim());
+        eventCity = locationParts[0]; // İlk kısım şehir olmalı
+      }
+      
+      console.log(`📍 Event şehri: ${eventCity}, Kategori: ${event.category}`);
+      
+      const oneSignalResult = await OneSignalService.sendToAll(
+        '🎪 Yeni Etkinlik!',
+        `${event.title} - ${event.organizerName}`,
+        { 
+          type: 'new_event',
+          eventId: event._id.toString(),
+          title: event.title,
+          organizerName: event.organizerName,
+          category: event.category,
+          timestamp: new Date().toISOString()
+        },
+        eventCity,  // Şehir filtresi
+        event.category  // Kategori filtresi
+      );
+      console.log('✅ OneSignal push notification gönderildi:', oneSignalResult);
+    } catch (oneSignalError) {
+      console.error('❌ OneSignal push notification gönderilemedi:', oneSignalError);
+    }
+
     res.json({
       success: true,
-      message: 'Event başarıyla onaylandı!',
+      message: 'Event başarıyla onaylandı ve kullanıcılara bildirim gönderildi!',
       data: event
     });
   } catch (error) {
