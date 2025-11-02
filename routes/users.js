@@ -76,7 +76,7 @@ router.put('/:id/profile', uploadProfilePhoto.single('profilePhoto'), async (req
     });
   } catch (error) {
     console.error('Profil güncelleme hatası:', error);
-    res.status(500).json({ message: 'Sunucu hatası!' });
+    res.status(500).json({ success: false, message: 'Sunucu hatası!' });
   }
 });
 
