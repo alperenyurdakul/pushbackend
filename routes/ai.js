@@ -1277,53 +1277,7 @@ router.post('/verify-customer-code', async (req, res) => {
       billAmount: codeRecord.billAmount
     });
 
-    // Kullanıcıya OneSignal notification gönder ve istatistikleri güncelle
-    try {
-      const customerUser = await User.findById(codeRecord.userId._id);
-      if (customerUser) {
-        // İstatistikleri güncelle
-        customerUser.statistics.usedCampaignsCount = (customerUser.statistics.usedCampaignsCount || 0) + 1;
-        
-        // Eğer savedAmount varsa, totalSavings'i artır
-        const billAmount = codeRecord.billAmount;
-        if (billAmount && billAmount.savedAmount) {
-          customerUser.statistics.totalSavings = (customerUser.statistics.totalSavings || 0) + billAmount.savedAmount;
-        }
-        
-        await customerUser.save();
-        console.log('✅ Kullanıcı istatistikleri güncellendi:', {
-          userId: customerUser._id,
-          usedCampaigns: customerUser.statistics.usedCampaignsCount,
-          totalSavings: customerUser.statistics.totalSavings
-        });
-        
-        // OneSignal bildirimi gönder
-        if (customerUser.oneSignalExternalId) {
-          const message = billAmount 
-            ? `Kodunuz doğrulandı! Hesap: ${billAmount.originalAmount} TL, Ödenecek: ${billAmount.discountedAmount} TL`
-            : 'Kodunuz başarıyla doğrulandı!';
-          
-          await OneSignalService.sendToUser(
-            customerUser.oneSignalExternalId,
-            'Kod Doğrulandı ✅',
-            message,
-            {
-              type: 'code_verified',
-              bannerId: bannerObjectId.toString(),
-              billAmount: billAmount,
-              bannerTitle: banner.title
-            }
-          );
-          console.log('✅ OneSignal bildirimi gönderildi:', customerUser.phone);
-        } else {
-          console.log('⚠️ Kullanıcı OneSignal ID bulunamadı:', codeRecord.userId.phone);
-        }
-      }
-    } catch (notificationError) {
-      console.error('❌ OneSignal bildirim hatası:', notificationError);
-      // Notification hatası kod doğrulamayı engellemesin
-    }
-
+    // Response'u hemen gönder, bildirim ve istatistikleri arka planda güncelle
     res.json({
       success: true,
       message: 'Kod başarıyla doğrulandı ve indirim uygulandı!',
@@ -1338,6 +1292,55 @@ router.post('/verify-customer-code', async (req, res) => {
         offerDetails: banner.offerDetails
       }
     });
+
+    // İstatistikleri ve bildirimi arka planda güncelle (response gönderildikten sonra)
+    (async () => {
+      try {
+        const customerUser = await User.findById(codeRecord.userId._id);
+        if (customerUser) {
+          // İstatistikleri güncelle
+          customerUser.statistics.usedCampaignsCount = (customerUser.statistics.usedCampaignsCount || 0) + 1;
+          
+          // Eğer savedAmount varsa, totalSavings'i artır
+          const billAmount = codeRecord.billAmount;
+          if (billAmount && billAmount.savedAmount) {
+            customerUser.statistics.totalSavings = (customerUser.statistics.totalSavings || 0) + billAmount.savedAmount;
+          }
+          
+          await customerUser.save();
+          console.log('✅ Kullanıcı istatistikleri güncellendi:', {
+            userId: customerUser._id,
+            usedCampaigns: customerUser.statistics.usedCampaignsCount,
+            totalSavings: customerUser.statistics.totalSavings
+          });
+          
+          // OneSignal bildirimi gönder
+          if (customerUser.oneSignalExternalId) {
+            const message = billAmount 
+              ? `Kodunuz doğrulandı! Hesap: ${billAmount.originalAmount} TL, Ödenecek: ${billAmount.discountedAmount} TL`
+              : 'Kodunuz başarıyla doğrulandı!';
+            
+            await OneSignalService.sendToUser(
+              customerUser.oneSignalExternalId,
+              'Kod Doğrulandı ✅',
+              message,
+              {
+                type: 'code_verified',
+                bannerId: bannerObjectId.toString(),
+                billAmount: billAmount,
+                bannerTitle: banner.title
+              }
+            );
+            console.log('✅ OneSignal bildirimi gönderildi:', customerUser.phone);
+          } else {
+            console.log('⚠️ Kullanıcı OneSignal ID bulunamadı:', codeRecord.userId.phone);
+          }
+        }
+      } catch (notificationError) {
+        console.error('❌ OneSignal bildirim/istatistik hatası:', notificationError);
+        // Notification hatası kod doğrulamayı engellemesin
+      }
+    })();
 
   } catch (error) {
     console.error('Müşteri kodu doğrulama hatası:', error);
