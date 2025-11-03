@@ -83,15 +83,23 @@ class OneSignalService {
              console.log('App ID:', process.env.ONESIGNAL_APP_ID);
              console.log('App Auth Key:', process.env.ONESIGNAL_APP_AUTH_KEY ? process.env.ONESIGNAL_APP_AUTH_KEY.substring(0, 30) + '...' : 'Not set');
              
-             // Filtrelenmiş kullanıcıları bul
-             const User = require('../models/User');
-             const query = {
-               userType: 'customer',
-               oneSignalExternalId: { $exists: true, $ne: null }
-             };
-             
-             // Şehir filtresi - SADECE o şehri seçen kullanıcılara gönder
-             if (bannerCity) {
+            // Filtrelenmiş kullanıcıları bul
+            const User = require('../models/User');
+            
+            console.log('📥 OneSignal sendToAll çağrıldı:', {
+              title,
+              bannerCity: bannerCity || 'YOK',
+              bannerCityType: typeof bannerCity,
+              bannerCategory: bannerCategory || 'YOK'
+            });
+            
+            const query = {
+              userType: 'customer',
+              oneSignalExternalId: { $exists: true, $ne: null }
+            };
+            
+            // Şehir filtresi - SADECE o şehri seçen kullanıcılara gönder
+            if (bannerCity) {
                const normalizedCity = bannerCity.trim();
                // Case-insensitive regex ile tam eşleşme (sadece o şehri seçenler)
                const cityRegex = new RegExp(`^${normalizedCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').trim()}$`, 'i');
@@ -122,41 +130,75 @@ class OneSignalService {
             query['preferences.city'] = { $regex: cityRegex };
           }
              
-             // Kategori filtresi - kategori tercihi olmayanları da dahil et
-             if (bannerCategory) {
-               // Hem şehir hem kategori filtresi varsa AND mantığı uygula
-               if (bannerCity) {
-                 const normalizedCity = bannerCity.trim();
-                 const cityRegex = new RegExp(`^${normalizedCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').trim()}$`, 'i');
-                 
-                 // Şehir filtresi zaten query'de, kategori filtresini ekle
-                 query['$and'] = [
-                   { 'preferences.city': { $regex: cityRegex } },
-                   {
-                     '$or': [
-                       { 'preferences.categories': bannerCategory },
-                       { 'preferences.categories': { $exists: false } },
-                       { 'preferences.categories': [] }
-                     ]
-                   }
-                 ];
-                 // preferences.city'yı query'den kaldır çünkü $and içinde var
-                 delete query['preferences.city'];
-               } else {
-                 // Sadece kategori filtresi
-                 query['$or'] = [
-                   { 'preferences.categories': bannerCategory },
-                   { 'preferences.categories': { $exists: false } },
-                   { 'preferences.categories': [] }
-                 ];
-               }
-             }
+            // Kategori filtresi - kategori tercihi olmayanları da dahil et
+            if (bannerCategory) {
+              // Hem şehir hem kategori filtresi varsa AND mantığı uygula
+              if (bannerCity) {
+                const normalizedCity = bannerCity.trim();
+                const cityRegex = new RegExp(`^${normalizedCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').trim()}$`, 'i');
+                
+                console.log('🔧 Şehir + Kategori filtresi birleştiriliyor:', {
+                  bannerCity,
+                  normalizedCity,
+                  cityRegexPattern: cityRegex.toString(),
+                  bannerCategory
+                });
+                
+                // Şehir filtresi zaten query'de, kategori filtresini ekle
+                query['$and'] = [
+                  { 'preferences.city': { $regex: cityRegex } },
+                  {
+                    '$or': [
+                      { 'preferences.categories': bannerCategory },
+                      { 'preferences.categories': { $exists: false } },
+                      { 'preferences.categories': [] }
+                    ]
+                  }
+                ];
+                // preferences.city'yı query'den kaldır çünkü $and içinde var
+                if (query['preferences.city']) {
+                  console.log('🗑️ preferences.city queryden kaldırılıyor (çünkü $and içinde var)');
+                  delete query['preferences.city'];
+                }
+              } else {
+                console.log('⚠️ bannerCity yok, sadece kategori filtresi uygulanıyor');
+                // Sadece kategori filtresi
+                query['$or'] = [
+                  { 'preferences.categories': bannerCategory },
+                  { 'preferences.categories': { $exists: false } },
+                  { 'preferences.categories': [] }
+                ];
+              }
+            } else if (bannerCity) {
+              // Sadece şehir filtresi (kategori yok)
+              console.log('ℹ️ Sadece şehir filtresi uygulanıyor (kategori yok)');
+            }
              
-             console.log('🔍 OneSignal filtresi:', {
-               bannerCity,
-               bannerCategory,
-               query: JSON.stringify(query, null, 2)
-             });
+            // Şehir filtresi testi - sadece şehir ile kaç kullanıcı bulunuyor?
+            if (bannerCity) {
+              const testCityQuery = {
+                userType: 'customer',
+                oneSignalExternalId: { $exists: true, $ne: null },
+                'preferences.city': { $regex: new RegExp(`^${bannerCity.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+              };
+              const testCityUsers = await User.find(testCityQuery);
+              console.log(`🧪 TEST - Sadece şehir filtresi ile bulunan kullanıcı sayısı: ${testCityUsers.length}`);
+              if (testCityUsers.length > 0) {
+                console.log('🧪 TEST - Bulunan kullanıcıların şehir tercihleri:', 
+                  testCityUsers.map(u => ({
+                    phone: u.phone,
+                    city: u.preferences?.city,
+                    categories: u.preferences?.categories
+                  }))
+                );
+              }
+            }
+            
+            console.log('🔍 OneSignal filtresi:', {
+              bannerCity,
+              bannerCategory,
+              query: JSON.stringify(query, null, 2)
+            });
              
             const users = await User.find(query);
             
