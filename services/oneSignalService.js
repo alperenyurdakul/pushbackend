@@ -90,13 +90,20 @@ class OneSignalService {
                oneSignalExternalId: { $exists: true, $ne: null }
              };
              
-             // Şehir filtresi - sadece tercih belirtmiş kullanıcılara uygula
+             // Şehir filtresi - normalize edilmiş şehir adı ile case-insensitive eşleşme
              if (bannerCity) {
+               const normalizedCity = bannerCity.trim();
+               // Case-insensitive eşleşme için regex kullan
+               query['preferences.city'] = { 
+                 $regex: new RegExp(`^${normalizedCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
+               };
+               // Şehir tercihi olmayan kullanıcıları da dahil et
                query['$or'] = [
-                 { 'preferences.city': bannerCity },
+                 { 'preferences.city': { $regex: new RegExp(`^${normalizedCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
                  { 'preferences.city': { $exists: false } },
                  { 'preferences.city': null }
                ];
+               delete query['preferences.city'];
              }
              
              // Kategori filtresi - sadece tercih belirtmiş kullanıcılara uygula
@@ -113,10 +120,11 @@ class OneSignalService {
                };
                // Her iki filtre varsa AND mantığı uygula
                if (bannerCity) {
+                 const normalizedCity = bannerCity.trim();
                  query['$and'] = [
                    { 
                      '$or': [
-                       { 'preferences.city': bannerCity },
+                       { 'preferences.city': { $regex: new RegExp(`^${normalizedCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
                        { 'preferences.city': { $exists: false } },
                        { 'preferences.city': null }
                      ]

@@ -429,15 +429,29 @@ router.post('/events/:id/approve', adminAuth, async (req, res) => {
     try {
       console.log('📱 Onaylanan event için bildirim gönderiliyor...');
       
-      // location stringinden şehir bilgisini çıkar (örn: "İstanbul, Kadıköy" -> "İstanbul")
+      // Şehir bilgisini belirle: önce address.city, sonra location string'inden parse et
       let eventCity = null;
-      if (event.location && typeof event.location === 'string') {
+      
+      // Önce address.city'yi kontrol et (yeni eventlerde bu kullanılıyor)
+      if (event.address && event.address.city) {
+        eventCity = event.address.city.trim();
+        console.log(`📍 Event şehri (address.city): ${eventCity}`);
+      } 
+      // Eğer address.city yoksa, location string'inden parse et (eski eventler için)
+      else if (event.location && typeof event.location === 'string') {
         const locationParts = event.location.split(',').map(part => part.trim());
         eventCity = locationParts[0]; // İlk kısım şehir olmalı
+        console.log(`📍 Event şehri (location string): ${eventCity}`);
       }
       
-      console.log(`📍 Event şehri: ${eventCity}, Kategori: ${event.category}`);
+      // Şehir adını normalize et (baş harf büyük, geri kalan küçük)
+      if (eventCity) {
+        eventCity = eventCity.charAt(0).toUpperCase() + eventCity.slice(1).toLowerCase();
+      }
       
+      console.log(`📍 Event şehri (normalize edilmiş): ${eventCity || 'Belirtilmemiş'}, Kategori: ${event.category}`);
+      
+      // Şehir bilgisi yoksa tüm kullanıcılara gönder
       const oneSignalResult = await OneSignalService.sendToAll(
         '🎪 Yeni Etkinlik!',
         `${event.title} - ${event.organizerName}`,
@@ -449,12 +463,13 @@ router.post('/events/:id/approve', adminAuth, async (req, res) => {
           category: event.category,
           timestamp: new Date().toISOString()
         },
-        eventCity,  // Şehir filtresi
-        event.category  // Kategori filtresi
+        eventCity || null,  // Şehir filtresi (null ise tüm kullanıcılara gönder)
+        event.category || null  // Kategori filtresi
       );
       console.log('✅ OneSignal push notification gönderildi:', oneSignalResult);
     } catch (oneSignalError) {
       console.error('❌ OneSignal push notification gönderilemedi:', oneSignalError);
+      console.error('❌ OneSignal hata detayları:', oneSignalError.message, oneSignalError.stack);
     }
 
     res.json({
