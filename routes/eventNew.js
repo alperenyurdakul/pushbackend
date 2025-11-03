@@ -59,9 +59,20 @@ router.post('/create', authenticateToken, async (req, res) => {
     // Görsel yükle (base64 ise S3'e yükle)
     let bannerImageUrl = null;
     if (bannerImage && bannerImage.startsWith('data:image/')) {
-      bannerImageUrl = await uploadBase64ToS3(bannerImage, 'events');
+      try {
+        console.log('📤 Event banner görseli S3e yükleniyor...');
+        bannerImageUrl = await uploadBase64ToS3(bannerImage, 'events');
+        console.log('✅ Event banner görseli yüklendi:', bannerImageUrl);
+      } catch (uploadError) {
+        console.error('❌ Event banner görseli yükleme hatası:', uploadError);
+        // Görsel yükleme hatası etkinlik oluşturmayı engellemesin
+        bannerImageUrl = null;
+      }
     } else if (bannerImage && (bannerImage.startsWith('http://') || bannerImage.startsWith('https://'))) {
       bannerImageUrl = bannerImage;
+      console.log('✅ Event banner görseli zaten URL:', bannerImageUrl);
+    } else if (bannerImage) {
+      console.warn('⚠️ Event banner görseli formatı beklenmiyor:', typeof bannerImage, bannerImage?.substring(0, 50));
     }
     
     const eventData = {
@@ -83,6 +94,13 @@ router.post('/create', authenticateToken, async (req, res) => {
     
     const newEvent = new Event(eventData);
     await newEvent.save();
+    
+    console.log('✅ Etkinlik oluşturuldu:', {
+      eventId: newEvent._id,
+      title: newEvent.title,
+      bannerImage: newEvent.bannerImage,
+      bannerImageUrl: bannerImageUrl
+    });
     
     res.json({
       success: true,
