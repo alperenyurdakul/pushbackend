@@ -428,6 +428,13 @@ router.post('/events/:id/approve', adminAuth, async (req, res) => {
     // Onaylandıktan sonra bildirim gönder (Banner onaylamadaki gibi)
     try {
       console.log('📱 Onaylanan event için bildirim gönderiliyor...');
+      console.log('🔍 Event detayları:', {
+        eventId: event._id,
+        title: event.title,
+        address: event.address,
+        location: event.location,
+        category: event.category
+      });
       
       // Şehir bilgisini belirle: önce address.city, sonra location string'inden parse et
       let eventCity = null;
@@ -438,10 +445,12 @@ router.post('/events/:id/approve', adminAuth, async (req, res) => {
         console.log(`📍 Event şehri (address.city): "${eventCity}"`);
       } 
       // Eğer address.city yoksa, location string'inden parse et (eski eventler için)
+      // Format: "İlçe,Şehir" - son kısım şehir
       else if (event.location && typeof event.location === 'string') {
         const locationParts = event.location.split(',').map(part => part.trim());
-        eventCity = locationParts[0]; // İlk kısım şehir olmalı
-        console.log(`📍 Event şehri (location string): "${eventCity}"`);
+        // Son kısım şehir olmalı (format: "İlçe,Şehir")
+        eventCity = locationParts.length > 0 ? locationParts[locationParts.length - 1] : locationParts[0];
+        console.log(`📍 Event şehri (location string parse): "${eventCity}" (location: "${event.location}")`);
       }
       
       // Şehir adını normalize et (baş harf büyük, geri kalan küçük)
@@ -459,7 +468,15 @@ router.post('/events/:id/approve', adminAuth, async (req, res) => {
       
       console.log(`📍 Event şehri (normalize edilmiş): ${eventCity || 'Belirtilmemiş'}, Kategori: ${eventCategory || 'Belirtilmemiş'}`);
       
-      // Banner onaylamadaki gibi bildirim gönder
+      if (!eventCity) {
+        console.warn('⚠️ UYARI: Event şehir bilgisi bulunamadı! Tüm kullanıcılara bildirim gönderilecek.');
+      } else {
+        console.log(`✅ Şehir filtresi uygulanacak: "${eventCity}"`);
+      }
+      
+      // Event bildirimleri için sadece şehir filtresi kullan (kategori filtresi kaldırıldı)
+      // Çünkü kullanıcılar kategori tercihi belirtmişse ve o kategoride değilse bildirim almamalı
+      // Ama kategori tercihi olmayanlar da dahil edilmeli - bu karmaşık olduğu için şimdilik sadece şehir filtresi
       const oneSignalResult = await OneSignalService.sendToAll(
         '🎪 Yeni Etkinlik!',
         `${event.title} - ${event.organizerName}`,
@@ -471,8 +488,8 @@ router.post('/events/:id/approve', adminAuth, async (req, res) => {
           category: eventCategory,
           timestamp: new Date().toISOString()
         },
-        eventCity,  // Şehir filtresi (banner onaylamadaki gibi)
-        eventCategory  // Kategori filtresi
+        eventCity,  // Şehir filtresi
+        null  // Kategori filtresi kaldırıldı - sadece şehir bazlı bildirim
       );
       console.log('✅ OneSignal push notification gönderildi:', oneSignalResult);
     } catch (oneSignalError) {
