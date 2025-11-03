@@ -428,6 +428,13 @@ router.post('/events/:id/approve', adminAuth, async (req, res) => {
     // Onaylandıktan sonra bildirim gönder
     try {
       console.log('📱 Onaylanan event için bildirim gönderiliyor...');
+      console.log('🔍 Event detayları:', {
+        eventId: event._id,
+        title: event.title,
+        address: event.address,
+        location: event.location,
+        category: event.category
+      });
       
       // Şehir bilgisini belirle: önce address.city, sonra location string'inden parse et
       let eventCity = null;
@@ -435,21 +442,29 @@ router.post('/events/:id/approve', adminAuth, async (req, res) => {
       // Önce address.city'yi kontrol et (yeni eventlerde bu kullanılıyor)
       if (event.address && event.address.city) {
         eventCity = event.address.city.trim();
-        console.log(`📍 Event şehri (address.city): ${eventCity}`);
+        console.log(`📍 Event şehri (address.city): "${eventCity}"`);
       } 
       // Eğer address.city yoksa, location string'inden parse et (eski eventler için)
       else if (event.location && typeof event.location === 'string') {
         const locationParts = event.location.split(',').map(part => part.trim());
         eventCity = locationParts[0]; // İlk kısım şehir olmalı
-        console.log(`📍 Event şehri (location string): ${eventCity}`);
+        console.log(`📍 Event şehri (location string): "${eventCity}"`);
       }
       
       // Şehir adını normalize et (baş harf büyük, geri kalan küçük)
+      // ÖNEMLİ: Kullanıcı tercihlerinde şehir adı nasıl kaydedilmiş kontrol et
+      const originalCity = eventCity;
       if (eventCity) {
         eventCity = eventCity.charAt(0).toUpperCase() + eventCity.slice(1).toLowerCase();
       }
       
-      console.log(`📍 Event şehri (normalize edilmiş): ${eventCity || 'Belirtilmemiş'}, Kategori: ${event.category}`);
+      console.log(`📍 Event şehri (orijinal): "${originalCity || 'Belirtilmemiş'}"`);
+      console.log(`📍 Event şehri (normalize edilmiş): "${eventCity || 'Belirtilmemiş'}"`);
+      console.log(`📍 Kategori: "${event.category || 'Belirtilmemiş'}"`);
+      
+      if (!eventCity) {
+        console.warn('⚠️ UYARI: Event şehir bilgisi yok! Tüm kullanıcılara bildirim gönderilecek.');
+      }
       
       // Şehir bilgisi yoksa tüm kullanıcılara gönder
       const oneSignalResult = await OneSignalService.sendToAll(

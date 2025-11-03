@@ -96,15 +96,31 @@ class OneSignalService {
                // Case-insensitive regex ile tam eşleşme (sadece o şehri seçenler)
                const cityRegex = new RegExp(`^${normalizedCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').trim()}$`, 'i');
                
-               console.log('🏙️ Şehir filtresi uygulanıyor:', {
-                 bannerCity,
-                 normalizedCity,
-                 regexPattern: cityRegex.toString()
-               });
-               
-               // Sadece o şehri seçen kullanıcıları filtrele
-               query['preferences.city'] = { $regex: cityRegex };
-             }
+            console.log('🏙️ Şehir filtresi uygulanıyor:', {
+              bannerCity,
+              normalizedCity,
+              regexPattern: cityRegex.toString()
+            });
+            
+            // DEBUG: Tüm kullanıcıların şehir tercihlerini kontrol et
+            const allUsersDebug = await User.find({ 
+              userType: 'customer',
+              oneSignalExternalId: { $exists: true, $ne: null }
+            }).select('phone preferences.city oneSignalExternalId').limit(10);
+            
+            console.log('🔍 DEBUG - İlk 10 kullanıcının şehir tercihleri:', 
+              allUsersDebug.map(u => ({
+                phone: u.phone,
+                city: u.preferences?.city,
+                cityType: typeof u.preferences?.city,
+                cityLength: u.preferences?.city?.length,
+                oneSignalId: u.oneSignalExternalId ? 'Var' : 'Yok'
+              }))
+            );
+            
+            // Sadece o şehri seçen kullanıcıları filtrele
+            query['preferences.city'] = { $regex: cityRegex };
+          }
              
              // Kategori filtresi - kategori tercihi olmayanları da dahil et
              if (bannerCategory) {
