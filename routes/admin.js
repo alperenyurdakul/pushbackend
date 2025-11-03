@@ -462,8 +462,19 @@ router.post('/events/:id/approve', adminAuth, async (req, res) => {
       console.log(`📍 Event şehri (normalize edilmiş): "${eventCity || 'Belirtilmemiş'}"`);
       console.log(`📍 Kategori: "${event.category || 'Belirtilmemiş'}"`);
       
+      // Şehir bilgisini temizle ve kontrol et
+      if (eventCity) {
+        eventCity = eventCity.trim();
+        // Boş string kontrolü
+        if (eventCity === '') {
+          eventCity = null;
+        }
+      }
+      
       if (!eventCity) {
         console.warn('⚠️ UYARI: Event şehir bilgisi yok! Tüm kullanıcılara bildirim gönderilecek.');
+      } else {
+        console.log(`✅ Şehir filtresi uygulanacak: "${eventCity}"`);
       }
       
       // Şehir bilgisi yoksa tüm kullanıcılara gönder
@@ -478,7 +489,7 @@ router.post('/events/:id/approve', adminAuth, async (req, res) => {
           category: event.category,
           timestamp: new Date().toISOString()
         },
-        eventCity || null,  // Şehir filtresi (null ise tüm kullanıcılara gönder)
+        eventCity,  // Şehir filtresi (null veya undefined ise tüm kullanıcılara gönder)
         event.category || null  // Kategori filtresi
       );
       console.log('✅ OneSignal push notification gönderildi:', oneSignalResult);

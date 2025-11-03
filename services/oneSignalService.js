@@ -99,10 +99,12 @@ class OneSignalService {
             };
             
             // Şehir filtresi - SADECE o şehri seçen kullanıcılara gönder
-            if (bannerCity) {
+            // bannerCity null, undefined, veya boş string kontrolü
+            if (bannerCity && typeof bannerCity === 'string' && bannerCity.trim() !== '') {
                const normalizedCity = bannerCity.trim();
                // Case-insensitive regex ile tam eşleşme (sadece o şehri seçenler)
-               const cityRegex = new RegExp(`^${normalizedCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').trim()}$`, 'i');
+               // ÖNEMLİ: Kullanıcı tercihlerinde şehir adı boşluklu olabilir, bu yüzden regex'e boşluk toleransı ekle
+               const cityRegex = new RegExp(`^\\s*${normalizedCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i');
                
             console.log('🏙️ Şehir filtresi uygulanıyor:', {
               bannerCity,
@@ -133,9 +135,10 @@ class OneSignalService {
             // Kategori filtresi - kategori tercihi olmayanları da dahil et
             if (bannerCategory) {
               // Hem şehir hem kategori filtresi varsa AND mantığı uygula
-              if (bannerCity) {
+              if (bannerCity && typeof bannerCity === 'string' && bannerCity.trim() !== '') {
                 const normalizedCity = bannerCity.trim();
-                const cityRegex = new RegExp(`^${normalizedCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').trim()}$`, 'i');
+                // Boşluk toleranslı regex
+                const cityRegex = new RegExp(`^\\s*${normalizedCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i');
                 
                 console.log('🔧 Şehir + Kategori filtresi birleştiriliyor:', {
                   bannerCity,
@@ -169,17 +172,17 @@ class OneSignalService {
                   { 'preferences.categories': [] }
                 ];
               }
-            } else if (bannerCity) {
+            } else if (bannerCity && typeof bannerCity === 'string' && bannerCity.trim() !== '') {
               // Sadece şehir filtresi (kategori yok)
               console.log('ℹ️ Sadece şehir filtresi uygulanıyor (kategori yok)');
             }
              
             // Şehir filtresi testi - sadece şehir ile kaç kullanıcı bulunuyor?
-            if (bannerCity) {
+            if (bannerCity && typeof bannerCity === 'string' && bannerCity.trim() !== '') {
               const testCityQuery = {
                 userType: 'customer',
                 oneSignalExternalId: { $exists: true, $ne: null },
-                'preferences.city': { $regex: new RegExp(`^${bannerCity.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+                'preferences.city': { $regex: new RegExp(`^\\s*${bannerCity.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i') }
               };
               const testCityUsers = await User.find(testCityQuery);
               console.log(`🧪 TEST - Sadece şehir filtresi ile bulunan kullanıcı sayısı: ${testCityUsers.length}`);

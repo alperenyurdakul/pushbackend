@@ -1071,9 +1071,21 @@ router.put('/update-preferences', async (req, res) => {
       });
     }
     
+    // Şehir adını temizle ve normalize et
+    let cleanedCity = city || user.preferences?.city;
+    if (cleanedCity && typeof cleanedCity === 'string') {
+      cleanedCity = cleanedCity.trim();
+      // Baş harf büyük, geri kalan küçük
+      if (cleanedCity !== '') {
+        cleanedCity = cleanedCity.charAt(0).toUpperCase() + cleanedCity.slice(1).toLowerCase();
+      } else {
+        cleanedCity = null;
+      }
+    }
+    
     // Tercihleri güncelle
     user.preferences = {
-      city: city || user.preferences?.city,
+      city: cleanedCity,
       categories: categories || user.preferences?.categories || []
     };
     
