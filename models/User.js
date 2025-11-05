@@ -65,6 +65,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  oneSignalPlayerId: {
+    type: String,
+    default: null
+  },
   oneSignalExternalId: {
     type: String,
     default: null

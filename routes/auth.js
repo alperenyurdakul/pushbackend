@@ -274,7 +274,7 @@ router.post('/login', async (req, res) => {
 // Push token güncelleme (Expo ve OneSignal)
 router.post('/update-push-token', async (req, res) => {
   try {
-    const { phone, expoPushToken, oneSignalExternalId } = req.body;
+    const { phone, expoPushToken, oneSignalPlayerId, oneSignalExternalId } = req.body;
     
     if (!phone) {
       return res.status(400).json({
@@ -295,6 +295,12 @@ router.post('/update-push-token', async (req, res) => {
     if (expoPushToken) {
       user.expoPushToken = expoPushToken;
       console.log(`✅ Expo push token güncellendi: ${phone}`);
+    }
+
+    // OneSignal Player ID'yi güncelle
+    if (oneSignalPlayerId) {
+      user.oneSignalPlayerId = oneSignalPlayerId;
+      console.log(`✅ OneSignal Player ID güncellendi: ${phone} -> ${oneSignalPlayerId}`);
     }
 
     // OneSignal external ID'yi güncelle
