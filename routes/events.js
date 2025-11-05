@@ -313,6 +313,105 @@ async function sendOneSignalNotification(event) {
   }
 }
 
+// Katılımcı onay/red endpoint
+router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
+  try {
+    const { eventId, participantId } = req.params;
+    const { approved } = req.body; // true = onay, false = red
+    
+    console.log('Katılımcı onay isteği:', { eventId, participantId, approved });
+    
+    // Event'i bul
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Etkinlik bulunamadı'
+      });
+    }
+    
+    // Katılımcıyı bul
+    const participant = event.participants.find(p => p.userId.toString() === participantId);
+    if (!participant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Katılımcı bulunamadı'
+      });
+    }
+    
+    // Durumu güncelle
+    const oldStatus = participant.status;
+    participant.status = approved ? 'approved' : 'rejected';
+    await event.save();
+    
+    console.log('Katılımcı durumu güncellendi:', { 
+      participantId, 
+      oldStatus, 
+      newStatus: participant.status 
+    });
+    
+    // Kullanıcıyı bul ve OneSignal bildirimi gönder
+    try {
+      const user = await User.findById(participantId);
+      if (user && user.oneSignalPlayerId) {
+        const notification = {
+          app_id: 'bd7cf25d-3767-4075-a84d-3f9332db9406',
+          headings: { 
+            en: approved ? '✅ Etkinliğe Katılım Onaylandı!' : '❌ Etkinliğe Katılım Reddedildi' 
+          },
+          contents: { 
+            en: approved 
+              ? `"${event.title || event.eventTitle}" etkinliğine katılımınız onaylandı! Etkinlik günü QR kodunuzu göstermeyi unutmayın.`
+              : `"${event.title || event.eventTitle}" etkinliğine katılım başvurunuz maalesef reddedildi.`
+          },
+          data: {
+            type: 'event_participation',
+            eventId: event._id.toString(),
+            eventTitle: event.title || event.eventTitle,
+            approved: approved,
+            participantId: participantId
+          },
+          include_player_ids: [user.oneSignalPlayerId],
+          ios_badgeType: 'Increase',
+          ios_badgeCount: 1
+        };
+
+        console.log('OneSignal bildirimi gönderiliyor:', {
+          userId: user._id,
+          playerId: user.oneSignalPlayerId,
+          approved
+        });
+
+        const response = await client.createNotification(notification);
+        console.log('OneSignal bildirimi başarıyla gönderildi:', response);
+      } else {
+        console.log('Kullanıcı bulunamadı veya OneSignal Player ID yok:', { 
+          userId: participantId, 
+          hasUser: !!user, 
+          hasPlayerId: user?.oneSignalPlayerId 
+        });
+      }
+    } catch (notifError) {
+      console.error('Bildirim gönderme hatası:', notifError);
+      // Bildirim hatası ana işlemi etkilemesin
+    }
+    
+    res.json({
+      success: true,
+      message: approved ? 'Katılımcı onaylandı' : 'Katılımcı reddedildi',
+      event: event
+    });
+    
+  } catch (error) {
+    console.error('Katılımcı onay hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Katılımcı onay işlemi başarısız',
+      error: error.message
+    });
+  }
+});
+
 // OneSignal test endpoint
 router.post('/test-onesignal', async (req, res) => {
   try {
