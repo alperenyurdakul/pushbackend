@@ -6,8 +6,11 @@ const multer = require('multer');
 const path = require('path');
 const OneSignal = require('onesignal-node');
 
-// OneSignal client - Gerçek credentials
-const client = new OneSignal.Client('bd7cf25d-3767-4075-a84d-3f9332db9406', 'os_v2_app_xv6pexjxm5ahlkcnh6jtfw4uaysjwjo7rmlen35t2y2jnizajtbfvvbm27o2mdmbq2l5nsx7khz7an3xzmx35hbupuoydek2wwa7ykq');
+// OneSignal client - Mobil uygulama ile aynı App ID kullanılmalı
+const client = new OneSignal.Client(
+  'e4150da6-cd3a-44f2-a193-254898ba5129', 
+  'os_v2_app_4qkq3jwnhjcpfimtevejrosrfex4mx4cphlu5hnz4b5gr5qu7yfwmbqnvlnkwr7ebdgph3xwlvzz6rvsmyb7eoti7besh4exz2hc7fa'
+);
 
 // Multer konfigürasyonu
 const storage = multer.diskStorage({
@@ -287,7 +290,7 @@ async function sendEventNotificationToAllUsers(event) {
 async function sendOneSignalNotification(event) {
   try {
     const notification = {
-      app_id: 'bd7cf25d-3767-4075-a84d-3f9332db9406',
+      app_id: 'e4150da6-cd3a-44f2-a193-254898ba5129',
       headings: { en: '🎉 Yeni Etkinlik!' },
       contents: { en: `${event.title} - ${event.description}` },
       data: {
@@ -363,7 +366,7 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
       const user = await User.findById(userId);
       if (user && user.oneSignalPlayerId) {
         const notification = {
-          app_id: 'bd7cf25d-3767-4075-a84d-3f9332db9406',
+          app_id: 'e4150da6-cd3a-44f2-a193-254898ba5129',
           headings: { 
             en: approved ? '✅ Etkinliğe Katılım Onaylandı!' : '❌ Etkinliğe Katılım Reddedildi' 
           },
@@ -425,7 +428,7 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
 router.post('/test-onesignal', async (req, res) => {
   try {
     const testNotification = {
-      app_id: 'bd7cf25d-3767-4075-a84d-3f9332db9406',
+      app_id: 'e4150da6-cd3a-44f2-a193-254898ba5129',
       headings: { en: '🧪 OneSignal Test' },
       contents: { en: 'OneSignal entegrasyonu başarıyla çalışıyor!' },
       data: {
