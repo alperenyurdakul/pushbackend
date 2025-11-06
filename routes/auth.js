@@ -1124,4 +1124,130 @@ router.put('/update-preferences', async (req, res) => {
   }
 });
 
+// Kod doğrulama ve kullanım işaretleme endpoint'i (marka tarafından kullanılır)
+router.post('/verify-campaign-code', async (req, res) => {
+  try {
+    const { code } = req.body;
+    
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        message: 'Kod gerekli'
+      });
+    }
+
+    // Marka giriş kontrolü
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kod doğrulamak için giriş yapmalısınız'
+      });
+    }
+
+    const token = authHeader.substring(7);
+    const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+    
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const brandUser = await User.findById(decoded.userId);
+      
+      if (!brandUser || (brandUser.userType !== 'brand' && brandUser.userType !== 'eventBrand' && !brandUser.isAdmin)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Bu işlem için yetkiniz yok'
+        });
+      }
+
+      // Kodu bul
+      const CodeHistory = require('../models/CodeHistory');
+      const codeHistory = await CodeHistory.findOne({ code: code });
+      
+      if (!codeHistory) {
+        return res.status(404).json({
+          success: false,
+          message: 'Kod bulunamadı veya geçersiz'
+        });
+      }
+
+      // Kod zaten kullanılmış mı?
+      if (codeHistory.used) {
+        return res.status(400).json({
+          success: false,
+          message: 'Bu kod daha önce kullanılmış',
+          usedAt: codeHistory.usedAt
+        });
+      }
+
+      // Kodun süresinin dolup dolmadığını kontrol et (24 saat)
+      const now = new Date();
+      const codeAge = now - codeHistory.createdAt;
+      const twentyFourHours = 24 * 60 * 60 * 1000;
+      
+      if (codeAge > twentyFourHours) {
+        return res.status(400).json({
+          success: false,
+          message: 'Kodun süresi dolmuş'
+        });
+      }
+
+      // Kodu kullanılmış olarak işaretle
+      codeHistory.used = true;
+      codeHistory.usedAt = now;
+      await codeHistory.save();
+
+      // Kullanıcının istatistiklerini güncelle
+      const user = await User.findById(codeHistory.userId);
+      if (user) {
+        user.statistics.usedCampaignsCount = (user.statistics.usedCampaignsCount || 0) + 1;
+        
+        // Kazanç hesabı varsa toplam kazanca ekle
+        if (codeHistory.billAmount && codeHistory.billAmount.savedAmount) {
+          user.statistics.totalSavings = (user.statistics.totalSavings || 0) + codeHistory.billAmount.savedAmount;
+        }
+        
+        await user.save();
+        
+        console.log('✅ Kullanıcı istatistikleri güncellendi:', {
+          userId: user._id,
+          usedCampaignsCount: user.statistics.usedCampaignsCount,
+          totalSavings: user.statistics.totalSavings
+        });
+      }
+
+      // Banner bilgisini al
+      const Banner = require('../models/Banner');
+      const banner = await Banner.findById(codeHistory.bannerId).populate('restaurant');
+
+      res.json({
+        success: true,
+        message: 'Kod başarıyla doğrulandı ve kullanıldı',
+        codeDetails: {
+          code: codeHistory.code,
+          userName: user ? user.name : 'Bilinmiyor',
+          userPhone: codeHistory.phone,
+          createdAt: codeHistory.createdAt,
+          usedAt: codeHistory.usedAt,
+          billAmount: codeHistory.billAmount,
+          bannerTitle: banner ? banner.title : 'Bilinmiyor',
+          restaurantName: banner?.restaurant?.name || 'Bilinmiyor'
+        }
+      });
+      
+    } catch (jwtError) {
+      return res.status(401).json({
+        success: false,
+        message: 'Geçersiz token'
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Kod doğrulama hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Sunucu hatası'
+    });
+  }
+});
+
 module.exports = router; 
