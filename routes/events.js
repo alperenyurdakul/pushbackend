@@ -5,6 +5,7 @@ const User = require('../models/User');
 const multer = require('multer');
 const path = require('path');
 const OneSignal = require('onesignal-node');
+const axios = require('axios');
 
 // OneSignal client - Mobil uygulama ile aynı App ID kullanılmalı
 // IMPORTANT: Bu değerleri OneSignal Dashboard'dan alın
@@ -18,6 +19,25 @@ console.log('🔧 App ID:', ONESIGNAL_APP_ID);
 console.log('🔧 REST API Key (ilk 20 karakter):', ONESIGNAL_REST_API_KEY.substring(0, 20) + '...');
 
 const client = new OneSignal.Client(ONESIGNAL_APP_ID, ONESIGNAL_REST_API_KEY);
+
+// Yeni OneSignal API (v2) için direkt HTTP istek fonksiyonu
+async function sendNotificationV2(notification) {
+  try {
+    console.log('📲 OneSignal V2 API ile bildirim gönderiliyor...');
+    const response = await axios.post('https://onesignal.com/api/v1/notifications', notification, {
+      headers: {
+        'Authorization': `Basic ${ONESIGNAL_REST_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    console.log('✅ OneSignal V2 bildirimi başarıyla gönderildi!');
+    console.log('✅ Yanıt:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ OneSignal V2 bildirim hatası:', error.response?.data || error.message);
+    throw error;
+  }
+}
 
 // Multer konfigürasyonu
 const storage = multer.diskStorage({
@@ -297,7 +317,7 @@ async function sendEventNotificationToAllUsers(event) {
 async function sendOneSignalNotification(event) {
   try {
     const notification = {
-      app_id: 'e4150da6-cd3a-44f2-a193-254898ba5129',
+      app_id: ONESIGNAL_APP_ID,
       headings: { en: '🎉 Yeni Etkinlik!' },
       contents: { en: `${event.title} - ${event.description}` },
       data: {
@@ -313,6 +333,10 @@ async function sendOneSignalNotification(event) {
       large_icon: event.image ? `http://localhost:5000/uploads/${event.image}` : undefined,
       url: 'mobile://event/' + event._id
     };
+
+    console.log('🔔 Etkinlik paylaşım bildirimi gönderiliyor...');
+    console.log('🔔 App ID:', ONESIGNAL_APP_ID);
+    console.log('🔔 Bildirim:', notification);
 
     const response = await client.createNotification(notification);
     console.log('OneSignal bildirimi gönderildi:', response);
@@ -417,7 +441,8 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
           heading: notification.headings.en
         });
 
-        const response = await client.createNotification(notification);
+        // Yeni V2 API kullan (include_player_ids için)
+        const response = await sendNotificationV2(notification);
         console.log('✅ OneSignal bildirimi başarıyla gönderildi!');
         console.log('✅ OneSignal yanıtı:', JSON.stringify(response, null, 2));
       } else {
@@ -460,7 +485,7 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
 router.post('/test-onesignal', async (req, res) => {
   try {
     const testNotification = {
-      app_id: 'e4150da6-cd3a-44f2-a193-254898ba5129',
+      app_id: ONESIGNAL_APP_ID,
       headings: { en: '🧪 OneSignal Test' },
       contents: { en: 'OneSignal entegrasyonu başarıyla çalışıyor!' },
       data: {
