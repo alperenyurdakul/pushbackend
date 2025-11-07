@@ -362,9 +362,22 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
       // participant.userId kullanarak kullanıcıyı bul
       const userId = participant.userId;
       console.log('🔍 Bildirim için kullanıcı aranıyor:', userId);
+      console.log('📋 Participant tam bilgisi:', JSON.stringify(participant, null, 2));
       
       const user = await User.findById(userId);
+      console.log('👤 Kullanıcı bulundu mu?:', !!user);
+      if (user) {
+        console.log('👤 Kullanıcı detayları:', {
+          name: user.name,
+          phone: user.phone,
+          oneSignalPlayerId: user.oneSignalPlayerId,
+          hasPlayerId: !!user.oneSignalPlayerId
+        });
+      }
+      
       if (user && user.oneSignalPlayerId) {
+        console.log('✅ Kullanıcı ve Player ID mevcut, bildirim hazırlanıyor...');
+        
         const notification = {
           app_id: 'e4150da6-cd3a-44f2-a193-254898ba5129',
           headings: { 
@@ -387,24 +400,36 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
           ios_badgeCount: 1
         };
 
-        console.log('📲 OneSignal bildirimi gönderiliyor:', {
+        console.log('📲 OneSignal bildirimi gönderiliyor...');
+        console.log('📲 Bildirim detayları:', {
           userName: user.name,
           userId: user._id,
           playerId: user.oneSignalPlayerId,
-          approved
+          approved,
+          appId: notification.app_id,
+          heading: notification.headings.en
         });
 
         const response = await client.createNotification(notification);
-        console.log('✅ OneSignal bildirimi başarıyla gönderildi:', response);
+        console.log('✅ OneSignal bildirimi başarıyla gönderildi!');
+        console.log('✅ OneSignal yanıtı:', JSON.stringify(response, null, 2));
       } else {
-        console.log('⚠️ Kullanıcı bulunamadı veya OneSignal Player ID yok:', { 
+        console.log('⚠️ Kullanıcı bulunamadı veya OneSignal Player ID yok!');
+        console.log('⚠️ Detaylar:', { 
           userId: userId, 
           hasUser: !!user, 
-          hasPlayerId: user?.oneSignalPlayerId 
+          hasPlayerId: user?.oneSignalPlayerId,
+          userName: user?.name,
+          userPhone: user?.phone
         });
       }
     } catch (notifError) {
       console.error('❌ Bildirim gönderme hatası:', notifError);
+      console.error('❌ Hata detayları:', {
+        message: notifError.message,
+        statusCode: notifError.statusCode,
+        body: notifError.body
+      });
       // Bildirim hatası ana işlemi etkilemesin
     }
     
