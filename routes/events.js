@@ -7,10 +7,17 @@ const path = require('path');
 const OneSignal = require('onesignal-node');
 
 // OneSignal client - Mobil uygulama ile aynı App ID kullanılmalı
-const client = new OneSignal.Client(
-  'e4150da6-cd3a-44f2-a193-254898ba5129', 
-  'os_v2_app_4qkq3jwnhjcpfimtevejrosrfex4mx4cphlu5hnz4b5gr5qu7yfwmbqnvlnkwr7ebdgph3xwlvzz6rvsmyb7eoti7besh4exz2hc7fa'
-);
+// IMPORTANT: Bu değerleri OneSignal Dashboard'dan alın
+// App ID: Settings > Keys & IDs > OneSignal App ID
+// REST API Key: Settings > Keys & IDs > REST API Key
+const ONESIGNAL_APP_ID = 'e4150da6-cd3a-44f2-a193-254898ba5129';
+const ONESIGNAL_REST_API_KEY = 'os_v2_app_4qkq3jwnhjcpfimtevejrosrfgk3cootom3eka5lq4krwp7mlpn5r7l3cnpga527qmrmqxwgcizwuvibjfyj2bwbg3ebp63njyrp6pa';
+
+console.log('🔧 OneSignal Client başlatılıyor...');
+console.log('🔧 App ID:', ONESIGNAL_APP_ID);
+console.log('🔧 REST API Key (ilk 20 karakter):', ONESIGNAL_REST_API_KEY.substring(0, 20) + '...');
+
+const client = new OneSignal.Client(ONESIGNAL_APP_ID, ONESIGNAL_REST_API_KEY);
 
 // Multer konfigürasyonu
 const storage = multer.diskStorage({
@@ -379,7 +386,7 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
         console.log('✅ Kullanıcı ve Player ID mevcut, bildirim hazırlanıyor...');
         
         const notification = {
-          app_id: 'e4150da6-cd3a-44f2-a193-254898ba5129',
+          app_id: ONESIGNAL_APP_ID,
           headings: { 
             en: approved ? '✅ Etkinliğe Katılım Onaylandı!' : '❌ Etkinliğe Katılım Reddedildi' 
           },
