@@ -9,11 +9,34 @@ const path = require('path');
 const uploadS3 = require('../middleware/uploadS3');
 const { uploadBase64ToS3 } = require('../middleware/uploadS3');
 const OneSignal = require('onesignal-node');
+const axios = require('axios');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// OneSignal client
-const client = new OneSignal.Client('bd7cf25d-3767-4075-a84d-3f9332db9406', 'os_v2_app_xv6pexjxm5ahlkcnh6jtfw4uaysjwjo7rmlen35t2y2jnizajtbfvvbm27o2mdmbq2l5nsx7khz7an3xzmx35hbupuoydek2wwa7ykq');
+// OneSignal Configuration - Mobil uygulama ile aynı!
+const ONESIGNAL_APP_ID = 'e4150da6-cd3a-44f2-a193-254898ba5129';
+const ONESIGNAL_REST_API_KEY = 'os_v2_app_4qkq3jwnhjcpfimtevejrosrfgk3cootom3eka5lq4krwp7mlpn5r7l3cnpga527qmrmqxwgcizwuvibjfyj2bwbg3ebp63njyrp6pa';
+
+const client = new OneSignal.Client(ONESIGNAL_APP_ID, ONESIGNAL_REST_API_KEY);
+
+// OneSignal v2 API için direkt HTTP istek fonksiyonu
+async function sendNotificationV2(notification) {
+  try {
+    console.log('📲 OneSignal V2 API ile bildirim gönderiliyor...');
+    const response = await axios.post('https://api.onesignal.com/notifications', notification, {
+      headers: {
+        'Authorization': `Key ${ONESIGNAL_REST_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+    console.log('✅ OneSignal V2 bildirimi başarıyla gönderildi!');
+    return response.data;
+  } catch (error) {
+    console.error('❌ OneSignal V2 bildirim hatası:', error.response?.data || error.message);
+    throw error;
+  }
+}
 
 // Middleware - JWT token kontrolü
 const authenticateToken = (req, res, next) => {
@@ -148,15 +171,16 @@ router.put('/approve/:id', authenticateToken, isAdmin, async (req, res) => {
       // OneSignal bildirimi gönder
       try {
         const notification = {
-          app_id: 'bd7cf25d-3767-4075-a84d-3f9332db9406',
-          headings: { en: '🎉 Yeni Etkinlik Onaylandı!' },
-          contents: { en: `${event.title}` },
+          app_id: ONESIGNAL_APP_ID,
+          headings: { en: '🎉 Yeni Etkinlik!' },
+          contents: { en: `${event.title} - ${event.description}` },
           data: { eventId: event._id.toString(), type: 'event' },
           included_segments: ['All'],
         };
         await client.createNotification(notification);
+        console.log('✅ Etkinlik onay bildirimi gönderildi');
       } catch (error) {
-        console.error('OneSignal bildirim hatası:', error);
+        console.error('❌ OneSignal bildirim hatası:', error);
       }
     } else {
       event.approvalStatus = 'rejected';
@@ -307,20 +331,49 @@ router.put('/:id/participant/:participantId/approve', authenticateToken, async (
     
     await event.save();
     
-    // OneSignal bildirimi (onaylanırsa)
-    if (approved && participant.userId && participant.userId.oneSignalUserId) {
-      try {
+    // OneSignal bildirimi gönder
+    try {
+      // Katılımcı kullanıcısını bul
+      const participantUserId = participant.userId._id || participant.userId;
+      console.log('🔍 Katılımcı bildirimi için kullanıcı aranıyor:', participantUserId);
+      
+      const participantUser = await User.findById(participantUserId);
+      
+      if (participantUser && participantUser.oneSignalPlayerId) {
+        console.log('✅ Kullanıcı bulundu, Player ID:', participantUser.oneSignalPlayerId);
+        
         const notification = {
-          app_id: 'bd7cf25d-3767-4075-a84d-3f9332db9406',
-          headings: { en: '✅ Etkinlik Başvurunuz Onaylandı!' },
-          contents: { en: `${event.title} etkinliğine katılımınız onaylandı.` },
-          data: { eventId: event._id.toString(), type: 'event-approval' },
-          include_player_ids: [participant.userId.oneSignalUserId]
+          app_id: ONESIGNAL_APP_ID,
+          headings: { 
+            en: approved ? '✅ Etkinlik Başvurunuz Onaylandı!' : '❌ Etkinlik Başvurunuz Reddedildi'
+          },
+          contents: { 
+            en: approved 
+              ? `"${event.title}" etkinliğine katılımınız onaylandı! Etkinlik günü QR kodunuzu göstermeyi unutmayın.`
+              : `"${event.title}" etkinliğine katılım başvurunuz maalesef reddedildi.`
+          },
+          data: { 
+            eventId: event._id.toString(), 
+            type: 'event_participation',
+            approved: approved
+          },
+          include_player_ids: [participantUser.oneSignalPlayerId]
         };
-        await client.createNotification(notification);
-      } catch (error) {
-        console.error('OneSignal bildirim hatası:', error);
+        
+        console.log('📲 Bildirim gönderiliyor:', {
+          to: participantUser.name,
+          playerId: participantUser.oneSignalPlayerId,
+          approved
+        });
+        
+        await sendNotificationV2(notification);
+        console.log('✅ Katılımcı onay bildirimi gönderildi!');
+      } else {
+        console.log('⚠️ Kullanıcı bulunamadı veya OneSignal Player ID yok');
       }
+    } catch (notifError) {
+      console.error('❌ Bildirim gönderme hatası:', notifError);
+      // Bildirim hatası ana işlemi etkilemesin
     }
     
     res.json({

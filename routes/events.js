@@ -25,12 +25,12 @@ async function sendNotificationV2(notification) {
   try {
     console.log('📲 OneSignal V2 API ile bildirim gönderiliyor...');
     console.log('📲 Bildirim payload:', JSON.stringify(notification, null, 2));
-    console.log('📲 Authorization header:', `Basic ${ONESIGNAL_REST_API_KEY.substring(0, 30)}...`);
     
-    const response = await axios.post('https://onesignal.com/api/v1/notifications', notification, {
+    const response = await axios.post('https://api.onesignal.com/notifications', notification, {
       headers: {
-        'Authorization': `Basic ${ONESIGNAL_REST_API_KEY}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Key ${ONESIGNAL_REST_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       }
     });
     console.log('✅ OneSignal V2 bildirimi başarıyla gönderildi!');
