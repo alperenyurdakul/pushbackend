@@ -24,6 +24,9 @@ const client = new OneSignal.Client(ONESIGNAL_APP_ID, ONESIGNAL_REST_API_KEY);
 async function sendNotificationV2(notification) {
   try {
     console.log('📲 OneSignal V2 API ile bildirim gönderiliyor...');
+    console.log('📲 Bildirim payload:', JSON.stringify(notification, null, 2));
+    console.log('📲 Authorization header:', `Basic ${ONESIGNAL_REST_API_KEY.substring(0, 30)}...`);
+    
     const response = await axios.post('https://onesignal.com/api/v1/notifications', notification, {
       headers: {
         'Authorization': `Basic ${ONESIGNAL_REST_API_KEY}`,
@@ -34,7 +37,10 @@ async function sendNotificationV2(notification) {
     console.log('✅ Yanıt:', response.data);
     return response.data;
   } catch (error) {
-    console.error('❌ OneSignal V2 bildirim hatası:', error.response?.data || error.message);
+    console.error('❌ OneSignal V2 bildirim hatası!');
+    console.error('❌ Status:', error.response?.status);
+    console.error('❌ Hata detayı:', JSON.stringify(error.response?.data, null, 2));
+    console.error('❌ Tam hata:', error.message);
     throw error;
   }
 }
