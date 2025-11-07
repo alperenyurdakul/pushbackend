@@ -304,6 +304,7 @@ router.post('/update-push-token', async (req, res) => {
       console.log(`✅ OneSignal Player ID güncellendi: ${phone} (${user.name})`);
       console.log(`   Eski: ${oldPlayerId}`);
       console.log(`   Yeni: ${oneSignalPlayerId}`);
+    }
 
     // OneSignal external ID'yi güncelle
     if (oneSignalExternalId) {
