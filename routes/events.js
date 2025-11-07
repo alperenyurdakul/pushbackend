@@ -448,24 +448,21 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
             approved: approved,
             participantId: userId.toString()
           },
-          include_aliases: {
-            external_id: [userId.toString()]
-          },
-          target_channel: "push"
+          include_player_ids: [playerId]
         };
 
         console.log('📲 OneSignal bildirimi gönderiliyor...');
         console.log('📲 Bildirim detayları:', {
           userName: user.name,
           userId: user._id,
-          playerId: user.oneSignalPlayerId,
+          playerId: playerId,
           approved,
           appId: notification.app_id,
           heading: notification.headings.en
         });
 
-        // Yeni V2 API kullan (include_player_ids için)
-        const response = await sendNotificationV2(notification);
+        // Eski OneSignal client kullan (çalışan yöntem)
+        const response = await client.createNotification(notification);
         console.log('✅ OneSignal bildirimi başarıyla gönderildi!');
         console.log('✅ OneSignal yanıtı:', JSON.stringify(response, null, 2));
       } else {
