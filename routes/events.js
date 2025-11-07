@@ -415,6 +415,22 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
       if (user && user.oneSignalPlayerId) {
         console.log('✅ Kullanıcı ve Player ID mevcut, bildirim hazırlanıyor...');
         
+        // Player ID formatını kontrol et (UUID olmalı)
+        const playerId = user.oneSignalPlayerId;
+        const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(playerId);
+        
+        console.log('🔍 Player ID kontrol:', {
+          playerId,
+          isValidUUID,
+          length: playerId?.length
+        });
+        
+        if (!isValidUUID) {
+          console.log('❌ Player ID geçersiz format! UUID formatında olmalı.');
+          console.log('⚠️ Bildirim gönderilemiyor, kullanıcı yeniden giriş yapmalı.');
+          return; // Bildirim gönderme, işlem devam etsin
+        }
+        
         const notification = {
           app_id: ONESIGNAL_APP_ID,
           headings: { 
@@ -432,9 +448,10 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
             approved: approved,
             participantId: userId.toString()
           },
-          include_player_ids: [user.oneSignalPlayerId],
-          ios_badgeType: 'Increase',
-          ios_badgeCount: 1
+          include_aliases: {
+            external_id: [userId.toString()]
+          },
+          target_channel: "push"
         };
 
         console.log('📲 OneSignal bildirimi gönderiliyor...');
