@@ -428,6 +428,12 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
         if (!isValidUUID) {
           console.log('❌ Player ID geçersiz format! UUID formatında olmalı.');
           console.log('⚠️ Bildirim gönderilemiyor, kullanıcı yeniden giriş yapmalı.');
+          console.log('🔧 Player ID temizleniyor...');
+          
+          // Geçersiz Player ID'yi temizle
+          user.oneSignalPlayerId = null;
+          await user.save();
+          console.log('✅ Geçersiz Player ID temizlendi. Kullanıcı tekrar giriş yaptığında doğru ID kaydedilecek.');
           return; // Bildirim gönderme, işlem devam etsin
         }
         
