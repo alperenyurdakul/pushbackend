@@ -94,6 +94,43 @@ router.get('/check-push-tokens', async (req, res) => {
 // JWT secret key
 const JWT_SECRET = process.env.JWT_SECRET;
 
+// Telefon numarası kontrolü (kayıt öncesi)
+router.post('/check-phone', async (req, res) => {
+  try {
+    const { phone } = req.body;
+    
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Telefon numarası gerekli'
+      });
+    }
+    
+    const existingUser = await User.findOne({ phone });
+    
+    if (existingUser) {
+      return res.json({
+        success: false,
+        exists: true,
+        message: 'Bu telefon numarası zaten kayıtlı. Lütfen giriş yapın.'
+      });
+    }
+    
+    return res.json({
+      success: true,
+      exists: false,
+      message: 'Telefon numarası kullanılabilir'
+    });
+    
+  } catch (error) {
+    console.error('Telefon kontrolü hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Bir hata oluştu'
+    });
+  }
+});
+
 // Basit kullanıcı kayıt (sadece telefon + şifre + isim)
 router.post('/register', async (req, res) => {
   try {
@@ -107,9 +144,19 @@ router.post('/register', async (req, res) => {
     const { phone, password, name, gender, email, userType, category, city } = req.body;
 
     if (!phone || !password || !name) {
+      console.log('❌ Eksik alanlar:', {
+        phone: !!phone,
+        password: !!password,
+        name: !!name
+      });
       return res.status(400).json({
         success: false,
-        message: 'Telefon, şifre ve isim gerekli!'
+        message: 'Telefon, şifre ve isim gerekli!',
+        missing: {
+          phone: !phone,
+          password: !password,
+          name: !name
+        }
       });
     }
 
