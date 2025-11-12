@@ -52,22 +52,52 @@ router.get('/:id', async (req, res) => {
 // Update user profile
 router.put('/:id/profile', uploadProfilePhoto.single('profilePhoto'), async (req, res) => {
   try {
+    console.log('📝 Profil güncelleme isteği alındı:', {
+      userId: req.params.id,
+      body: req.body,
+      hasFile: !!req.file,
+      fileInfo: req.file ? {
+        fieldname: req.file.fieldname,
+        originalname: req.file.originalname,
+        size: req.file.size,
+        location: req.file.location,
+        key: req.file.key
+      } : 'Yok'
+    });
+    
     const { age, instagram } = req.body;
     
     // ObjectId doğrulama
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      console.error('❌ Geçersiz ObjectId:', req.params.id);
       return res.status(400).json({ success: false, message: 'Geçersiz kullanıcı ID!' });
     }
     
     const user = await User.findById(req.params.id);
     
     if (!user) {
+      console.error('❌ Kullanıcı bulunamadı:', req.params.id);
       return res.status(404).json({ success: false, message: 'Kullanıcı bulunamadı!' });
     }
 
+    console.log('👤 Kullanıcı bulundu:', {
+      id: user._id,
+      name: user.name,
+      phone: user.phone,
+      currentAge: user.age,
+      currentInstagram: user.instagram,
+      currentProfilePhoto: user.profilePhoto
+    });
+
     // Update user fields
-    if (age) user.age = parseInt(age);
-    if (instagram) user.instagram = instagram;
+    if (age) {
+      user.age = parseInt(age);
+      console.log('✅ Yaş güncellendi:', age);
+    }
+    if (instagram) {
+      user.instagram = instagram;
+      console.log('✅ Instagram güncellendi:', instagram);
+    }
     
     // Profile photo güncellenmişse ekle
     if (req.file) {
@@ -75,9 +105,11 @@ router.put('/:id/profile', uploadProfilePhoto.single('profilePhoto'), async (req
       const base = process.env.CDN_BASE_URL || `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com`;
       const url = req.file.location || `${base}/${key}`;
       user.profilePhoto = url;
+      console.log('✅ Profil fotoğrafı güncellendi:', url);
     }
     
     await user.save();
+    console.log('💾 Kullanıcı kaydedildi');
     
     res.json({ 
       success: true,
@@ -85,8 +117,19 @@ router.put('/:id/profile', uploadProfilePhoto.single('profilePhoto'), async (req
       user: user 
     });
   } catch (error) {
-    console.error('Profil güncelleme hatası:', error);
-    res.status(500).json({ success: false, message: 'Sunucu hatası!' });
+    console.error('❌ Profil güncelleme hatası:', error);
+    console.error('❌ Hata detayları:', {
+      message: error.message,
+      stack: error.stack,
+      userId: req.params.id,
+      body: req.body,
+      hasFile: !!req.file
+    });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Sunucu hatası!',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
