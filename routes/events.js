@@ -444,34 +444,14 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
           name: user.name,
           phone: user.phone,
           oneSignalPlayerId: user.oneSignalPlayerId,
-          hasPlayerId: !!user.oneSignalPlayerId
+          oneSignalExternalId: user.oneSignalExternalId,
+          hasPlayerId: !!user.oneSignalPlayerId,
+          hasExternalId: !!user.oneSignalExternalId
         });
       }
       
-      if (user && user.oneSignalPlayerId) {
-        console.log('✅ Kullanıcı ve Player ID mevcut, bildirim hazırlanıyor...');
-        
-        // Player ID formatını kontrol et (UUID olmalı)
-        const playerId = user.oneSignalPlayerId;
-        const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(playerId);
-        
-        console.log('🔍 Player ID kontrol:', {
-          playerId,
-          isValidUUID,
-          length: playerId?.length
-        });
-        
-        if (!isValidUUID) {
-          console.log('❌ Player ID geçersiz format! UUID formatında olmalı.');
-          console.log('⚠️ Bildirim gönderilemiyor, kullanıcı yeniden giriş yapmalı.');
-          console.log('🔧 Player ID temizleniyor...');
-          
-          // Geçersiz Player ID'yi temizle
-          user.oneSignalPlayerId = null;
-          await user.save();
-          console.log('✅ Geçersiz Player ID temizlendi. Kullanıcı tekrar giriş yaptığında doğru ID kaydedilecek.');
-          return; // Bildirim gönderme, işlem devam etsin
-        }
+      if (user && (user.oneSignalPlayerId || user.oneSignalExternalId)) {
+        console.log('✅ Kullanıcı ve OneSignal ID mevcut, bildirim hazırlanıyor...');
         
         const notification = {
           app_id: ONESIGNAL_APP_ID,
@@ -489,15 +469,49 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
             eventTitle: event.title || event.eventTitle,
             approved: approved,
             participantId: userId.toString()
-          },
-          include_player_ids: [playerId]
+          }
         };
+
+        // Player ID veya External ID kullan
+        let usedId = null;
+        let idType = null;
+        
+        if (user.oneSignalPlayerId) {
+          const playerId = user.oneSignalPlayerId;
+          const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(playerId);
+          
+          if (isValidUUID) {
+            notification.include_player_ids = [playerId];
+            usedId = playerId;
+            idType = 'Player ID';
+            console.log('📲 Player ID kullanılıyor:', playerId);
+          } else {
+            console.log('❌ Player ID geçersiz format, temizleniyor...');
+            user.oneSignalPlayerId = null;
+            await user.save();
+          }
+        }
+        
+        // Eğer Player ID yoksa veya geçersizse External ID kullan
+        if (!usedId && user.oneSignalExternalId) {
+          notification.include_external_user_ids = [user.oneSignalExternalId];
+          usedId = user.oneSignalExternalId;
+          idType = 'External ID';
+          console.log('📲 External ID kullanılıyor:', user.oneSignalExternalId);
+        }
+        
+        // Eğer hiçbir ID yoksa bildirim gönderme
+        if (!usedId) {
+          console.log('⚠️ Ne Player ID ne de External ID geçerli, bildirim gönderilemiyor!');
+          return;
+        }
 
         console.log('📲 OneSignal bildirimi gönderiliyor...');
         console.log('📲 Bildirim detayları:', {
           userName: user.name,
           userId: user._id,
-          playerId: playerId,
+          usedId: usedId,
+          idType: idType,
           approved,
           appId: notification.app_id,
           heading: notification.headings.en
@@ -506,7 +520,7 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
         // Axios ile direkt OneSignal API çağrısı yap
         const response = await sendNotification(notification);
         console.log('✅ OneSignal bildirimi başarıyla gönderildi!');
-        console.log('✅ Gönderilen Player ID:', playerId);
+        console.log(`✅ Gönderilen ${idType}:`, usedId);
         console.log('✅ Recipients:', response.recipients || 0);
       } else {
         console.log('⚠️ Kullanıcı bulunamadı veya OneSignal Player ID yok!');
