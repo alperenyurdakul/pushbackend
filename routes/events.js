@@ -323,26 +323,70 @@ async function sendEventNotificationToAllUsers(event) {
 
 // OneSignal ile etkinlik bildirimi gönderme (tüm kullanıcılara)
 async function sendOneSignalNotification(event) {
-  const notification = {
-    app_id: ONESIGNAL_APP_ID,
-    headings: { en: '🎉 Yeni Etkinlik!' },
-    contents: { en: `${event.title} - ${event.description}` },
-    data: {
-      eventId: event._id.toString(),
-      type: 'event',
-      title: event.title,
-      description: event.description,
-      location: event.location,
-      organizer: event.organizer,
-      eventTime: event.eventTime
-    },
-    included_segments: ['All'],
-    large_icon: event.image ? `http://localhost:5000/uploads/${event.image}` : undefined,
-    url: 'mobile://event/' + event._id
-  };
-
-  console.log('🔔 Etkinlik paylaşım bildirimi gönderiliyor...');
-  return await sendNotification(notification);
+  try {
+    console.log('🔔 Tüm kullanıcıları OneSignal için topluyorum...');
+    
+    // Tüm kullanıcıları database'den çek
+    const allUsers = await User.find({});
+    
+    // Player ID'leri topla (hem oneSignalPlayerId hem oneSignalExternalId)
+    const playerIds = [];
+    const externalIds = [];
+    
+    allUsers.forEach(user => {
+      if (user.oneSignalPlayerId) {
+        playerIds.push(user.oneSignalPlayerId);
+        console.log(`  ✅ Player ID: ${user.oneSignalPlayerId} (${user.name || user.phone})`);
+      }
+      if (user.oneSignalExternalId) {
+        externalIds.push(user.oneSignalExternalId);
+        console.log(`  ✅ External ID: ${user.oneSignalExternalId} (${user.name || user.phone})`);
+      }
+    });
+    
+    console.log(`🔔 Toplam ${playerIds.length} Player ID, ${externalIds.length} External ID bulundu`);
+    
+    if (playerIds.length === 0 && externalIds.length === 0) {
+      console.log('⚠️ Hiç OneSignal kullanıcısı bulunamadı!');
+      return { recipients: 0 };
+    }
+    
+    const notification = {
+      app_id: ONESIGNAL_APP_ID,
+      headings: { en: '🎉 Yeni Etkinlik!' },
+      contents: { en: `${event.title} - ${event.description}` },
+      data: {
+        eventId: event._id.toString(),
+        type: 'event',
+        title: event.title,
+        description: event.description,
+        location: event.location,
+        organizer: event.organizer,
+        eventTime: event.eventTime
+      },
+      large_icon: event.image ? `http://localhost:5000/uploads/${event.image}` : undefined,
+      url: 'mobile://event/' + event._id
+    };
+    
+    // Player ID'ler varsa onları kullan
+    if (playerIds.length > 0) {
+      notification.include_player_ids = playerIds;
+    }
+    
+    // External ID'ler varsa onları da ekle (ayrı istek gerekebilir)
+    if (externalIds.length > 0) {
+      notification.include_external_user_ids = externalIds;
+    }
+    
+    console.log('🔔 Etkinlik paylaşım bildirimi gönderiliyor...');
+    console.log('🔔 Player IDs:', playerIds.length);
+    console.log('🔔 External IDs:', externalIds.length);
+    
+    return await sendNotification(notification);
+  } catch (error) {
+    console.error('❌ OneSignal bildirim hatası:', error);
+    throw error;
+  }
 }
 
 // Katılımcı onay/red endpoint
