@@ -278,8 +278,11 @@ router.post('/:id/apply', authenticateToken, async (req, res) => {
       }
     }
     
-    // QR kod oluştur
+    // QR kod ve 6 haneli sayısal kod oluştur
     const qrCode = event.generateQRCode(user._id);
+    const simpleCode = event.generateSimpleCode(user._id);
+    
+    console.log('🎫 Kodlar oluşturuldu:', { qrCode, simpleCode });
     
     event.participants.push({
       userId: user._id,
@@ -287,7 +290,8 @@ router.post('/:id/apply', authenticateToken, async (req, res) => {
       userProfilePhoto: user.profilePhoto,
       phone: user.phone,
       status: 'pending',
-      qrCode
+      qrCode,
+      simpleCode
     });
     
     await event.save();
@@ -469,10 +473,19 @@ router.post('/:id/qr-verify', authenticateToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Bu işlem için yetkiniz yok' });
     }
     
-    const participant = event.participants.find(p => p.qrCode === qrCode);
+    // Hem QR kod hem de 6 haneli kod ile arama yap
+    const participant = event.participants.find(p => 
+      p.qrCode === qrCode || p.simpleCode === qrCode
+    );
+    
+    console.log('🔍 Kod doğrulama:', {
+      inputCode: qrCode,
+      foundParticipant: !!participant,
+      participantName: participant?.userName
+    });
     
     if (!participant) {
-      return res.status(404).json({ success: false, message: 'Geçersiz QR kod' });
+      return res.status(404).json({ success: false, message: 'Geçersiz kod' });
     }
     
     if (participant.status !== 'approved') {

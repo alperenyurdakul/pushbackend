@@ -92,6 +92,10 @@ const EventSchema = new mongoose.Schema({
       type: String,
       default: null
     },
+    simpleCode: {
+      type: String,
+      default: null
+    },
     qrVerifiedAt: Date
   }],
   
@@ -127,6 +131,16 @@ EventSchema.methods.generateQRCode = function(userId) {
   const crypto = require('crypto');
   const hash = crypto.createHash('sha256').update(`${this._id}-${userId}-${Date.now()}`).digest('hex');
   return hash.substring(0, 32);
+};
+
+// 6 haneli sayısal kod oluştur (manuel giriş için)
+EventSchema.methods.generateSimpleCode = function(userId) {
+  const crypto = require('crypto');
+  const hash = crypto.createHash('sha256').update(`${this._id}-${userId}-${Date.now()}`).digest('hex');
+  // İlk 6 karakteri sayıya çevir
+  const numericHash = parseInt(hash.substring(0, 8), 16);
+  // 6 haneli kod oluştur (100000-999999 arası)
+  return (numericHash % 900000 + 100000).toString();
 };
 
 // Index'ler
