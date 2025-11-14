@@ -27,9 +27,15 @@ async function sendNotification(notification) {
     console.log('📲 OneSignal bildirimi gönderiliyor...');
     console.log('📲 Bildirim payload:', JSON.stringify(notification, null, 2));
     
+    // OneSignal REST API için Authorization header
+    // Format: "Basic " + base64(REST_API_KEY + ":")
+    const authHeader = Buffer.from(ONESIGNAL_REST_API_KEY + ':').toString('base64');
+    
+    console.log('🔐 Authorization Header Preview:', `Basic ${authHeader.substring(0, 20)}...`);
+    
     const response = await axios.post('https://onesignal.com/api/v1/notifications', notification, {
       headers: {
-        'Authorization': `Basic ${ONESIGNAL_REST_API_KEY}`,
+        'Authorization': `Basic ${authHeader}`,
         'Content-Type': 'application/json'
       }
     });
@@ -321,26 +327,56 @@ async function sendEventNotificationToAllUsers(event) {
   }
 }
 
-// OneSignal ile etkinlik bildirimi gönderme (tüm kullanıcılara)
+// OneSignal ile etkinlik bildirimi gönderme (şehir ve kategori filtresine göre)
 async function sendOneSignalNotification(event) {
   try {
-    console.log('🔔 Tüm kullanıcıları OneSignal için topluyorum...');
+    console.log('🔔 Filtreye uygun kullanıcıları buluyorum...');
+    console.log('📍 Etkinlik şehri:', event.city);
+    console.log('🏷️ Etkinlik kategorisi:', event.category);
     
-    // Tüm kullanıcıları database'den çek
-    const allUsers = await User.find({});
+    // Filtreleme kriteri oluştur
+    const filter = {
+      $or: [
+        // Şehir eşleşen kullanıcılar
+        { city: event.city },
+        // Veya preferences.city eşleşen kullanıcılar
+        { 'preferences.city': event.city }
+      ]
+    };
+    
+    // Kategori varsa kategori filtresi de ekle
+    if (event.category) {
+      filter.$and = [
+        { $or: filter.$or }, // Şehir filtresi
+        {
+          $or: [
+            { category: event.category }, // Kullanıcının ana kategorisi
+            { 'preferences.categories': event.category } // Veya tercih ettiği kategoriler
+          ]
+        }
+      ];
+      delete filter.$or; // $and kullanıyoruz artık
+    }
+    
+    console.log('🔍 Filtre:', JSON.stringify(filter, null, 2));
+    
+    // Filtreye uygun kullanıcıları database'den çek
+    const filteredUsers = await User.find(filter);
+    
+    console.log(`📊 Toplam ${filteredUsers.length} kullanıcı filtreye uygun`);
     
     // Player ID'leri topla (hem oneSignalPlayerId hem oneSignalExternalId)
     const playerIds = [];
     const externalIds = [];
     
-    allUsers.forEach(user => {
+    filteredUsers.forEach(user => {
       if (user.oneSignalPlayerId) {
         playerIds.push(user.oneSignalPlayerId);
-        console.log(`  ✅ Player ID: ${user.oneSignalPlayerId} (${user.name || user.phone})`);
+        console.log(`  ✅ Player ID: ${user.oneSignalPlayerId} (${user.name || user.phone}) - ${user.city || user.preferences?.city}`);
       }
       if (user.oneSignalExternalId) {
         externalIds.push(user.oneSignalExternalId);
-        console.log(`  ✅ External ID: ${user.oneSignalExternalId} (${user.name || user.phone})`);
+        console.log(`  ✅ External ID: ${user.oneSignalExternalId} (${user.name || user.phone}) - ${user.city || user.preferences?.city}`);
       }
     });
     
