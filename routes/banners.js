@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Banner = require('../models/Banner');
+const { findNearbyBanners } = require('../services/locationService');
 
 // GET all banners
 router.get('/', async (req, res) => {
@@ -203,6 +204,51 @@ router.put('/:id/stats', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Banner istatistikleri güncellenirken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
+// POST /nearby - Kullanıcı konumuna yakın kampanyaları bul (200m)
+router.post('/nearby', async (req, res) => {
+  try {
+    const { latitude, longitude, radius } = req.body;
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        success: false,
+        message: 'Latitude ve longitude gerekli!'
+      });
+    }
+
+    console.log('🔍 Yakındaki kampanyalar aranıyor:', { 
+      latitude, 
+      longitude, 
+      radius: radius || 200 
+    });
+
+    // Aktif ve onaylı kampanyaları al
+    const banners = await Banner.find({
+      approvalStatus: 'approved',
+      isActive: true
+    }).populate('restaurant');
+
+    // Yakındakileri filtrele
+    const userLocation = { latitude, longitude };
+    const nearbyBanners = findNearbyBanners(userLocation, banners, radius || 200);
+
+    console.log(`✅ ${nearbyBanners.length} yakın kampanya bulundu`);
+
+    res.json({
+      success: true,
+      count: nearbyBanners.length,
+      data: nearbyBanners
+    });
+  } catch (error) {
+    console.error('❌ Yakındaki kampanyalar aranırken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Yakındaki kampanyalar aranırken hata oluştu!',
       error: error.message
     });
   }
