@@ -471,6 +471,9 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
         const response = await client.createNotification(notification);
         console.log('✅ OneSignal bildirimi başarıyla gönderildi!');
         console.log('✅ OneSignal yanıtı:', JSON.stringify(response, null, 2));
+        console.log('✅ OneSignal response.body:', JSON.stringify(response.body, null, 2));
+        console.log('✅ Gönderilen Player ID:', playerId);
+        console.log('✅ Recipients:', response.body?.recipients || 'N/A');
       } else {
         console.log('⚠️ Kullanıcı bulunamadı veya OneSignal Player ID yok!');
         console.log('⚠️ Detaylar:', { 
