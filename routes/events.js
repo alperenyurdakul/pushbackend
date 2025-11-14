@@ -6,6 +6,7 @@ const multer = require('multer');
 const path = require('path');
 const OneSignal = require('onesignal-node');
 const axios = require('axios');
+const OneSignalService = require('../services/oneSignalService');
 
 // OneSignal client - Mobil uygulama ile aynı App ID kullanılmalı
 // IMPORTANT: Bu değerleri OneSignal Dashboard'dan alın
@@ -492,75 +493,38 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
       if (user && (user.oneSignalPlayerId || user.oneSignalExternalId)) {
         console.log('✅ Kullanıcı ve OneSignal ID mevcut, bildirim hazırlanıyor...');
         
-        const notification = {
-          app_id: ONESIGNAL_APP_ID,
-          headings: { 
-            en: approved ? '✅ Etkinliğe Katılım Onaylandı!' : '❌ Etkinliğe Katılım Reddedildi' 
-          },
-          contents: { 
-            en: approved 
-              ? `"${event.title || event.eventTitle}" etkinliğine katılımınız onaylandı! Etkinlik günü QR kodunuzu göstermeyi unutmayın.`
-              : `"${event.title || event.eventTitle}" etkinliğine katılım başvurunuz maalesef reddedildi.`
-          },
-          data: {
-            type: 'event_participation',
-            eventId: event._id.toString(),
-            eventTitle: event.title || event.eventTitle,
-            approved: approved,
-            participantId: userId.toString()
-          }
+        const title = approved ? '✅ Etkinliğe Katılım Onaylandı!' : '❌ Etkinliğe Katılım Reddedildi';
+        const message = approved 
+          ? `"${event.title || event.eventTitle}" etkinliğine katılımınız onaylandı! Etkinlik günü QR kodunuzu göstermeyi unutmayın.`
+          : `"${event.title || event.eventTitle}" etkinliğine katılım başvurunuz maalesef reddedildi.`;
+        
+        const data = {
+          type: 'event_participation',
+          eventId: event._id.toString(),
+          eventTitle: event.title || event.eventTitle,
+          approved: approved,
+          participantId: userId.toString()
         };
 
-        // Player ID veya External ID kullan
-        let usedId = null;
-        let idType = null;
-        
-        if (user.oneSignalPlayerId) {
-          const playerId = user.oneSignalPlayerId;
-          const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(playerId);
-          
-          if (isValidUUID) {
-            notification.include_player_ids = [playerId];
-            usedId = playerId;
-            idType = 'Player ID';
-            console.log('📲 Player ID kullanılıyor:', playerId);
-          } else {
-            console.log('❌ Player ID geçersiz format, temizleniyor...');
-            user.oneSignalPlayerId = null;
-            await user.save();
-          }
-        }
-        
-        // Eğer Player ID yoksa veya geçersizse External ID kullan
-        if (!usedId && user.oneSignalExternalId) {
-          notification.include_external_user_ids = [user.oneSignalExternalId];
-          usedId = user.oneSignalExternalId;
-          idType = 'External ID';
-          console.log('📲 External ID kullanılıyor:', user.oneSignalExternalId);
-        }
-        
-        // Eğer hiçbir ID yoksa bildirim gönderme
-        if (!usedId) {
-          console.log('⚠️ Ne Player ID ne de External ID geçerli, bildirim gönderilemiyor!');
-          return;
-        }
-
-        console.log('📲 OneSignal bildirimi gönderiliyor...');
+        console.log('📲 OneSignal bildirimi gönderiliyor (OneSignalService kullanarak)...');
         console.log('📲 Bildirim detayları:', {
           userName: user.name,
           userId: user._id,
-          usedId: usedId,
-          idType: idType,
+          externalId: user.oneSignalExternalId,
           approved,
-          appId: notification.app_id,
-          heading: notification.headings.en
+          title
         });
 
-        // Axios ile direkt OneSignal API çağrısı yap
-        const response = await sendNotification(notification);
+        // OneSignalService kullan (kampanya bildirimi gibi - O ÇALIŞIYOR!)
+        const response = await OneSignalService.sendToUser(
+          user.oneSignalExternalId,
+          title,
+          message,
+          data
+        );
+        
         console.log('✅ OneSignal bildirimi başarıyla gönderildi!');
-        console.log(`✅ Gönderilen ${idType}:`, usedId);
-        console.log('✅ Recipients:', response.recipients || 0);
+        console.log('✅ OneSignalService yanıtı:', response);
       } else {
         console.log('⚠️ Kullanıcı bulunamadı veya OneSignal Player ID yok!');
         console.log('⚠️ Detaylar:', { 
