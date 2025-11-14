@@ -409,7 +409,7 @@ router.get('/events/pending', adminAuth, async (req, res) => {
 router.post('/events/:id/approve', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const event = await Event.findById(id).populate('organizerId', 'name phone email');
+    const event = await Event.findById(id).populate('organizerId', 'name phone email oneSignalExternalId oneSignalPlayerId');
 
     if (!event) {
       return res.status(404).json({
@@ -492,6 +492,27 @@ router.post('/events/:id/approve', adminAuth, async (req, res) => {
         null  // Kategori filtresi kaldırıldı - sadece şehir bazlı bildirim
       );
       console.log('✅ OneSignal push notification gönderildi:', oneSignalResult);
+      
+      // Organizatöre de bildirim gönder
+      if (event.organizerId && event.organizerId.oneSignalExternalId) {
+        console.log('📲 Organizatöre etkinlik yayınlandı bildirimi gönderiliyor...');
+        
+        await OneSignalService.sendToUser(
+          event.organizerId.oneSignalExternalId,
+          '✅ Etkinliğiniz Yayınlandı!',
+          `"${event.title}" etkinliğiniz onaylandı ve kullanıcılara duyuruldu!`,
+          {
+            type: 'event_published',
+            eventId: event._id.toString(),
+            eventTitle: event.title,
+            timestamp: new Date().toISOString()
+          }
+        );
+        
+        console.log('✅ Organizatöre bildirim gönderildi!');
+      } else {
+        console.log('⚠️ Organizatör OneSignal ID bulunamadı');
+      }
     } catch (oneSignalError) {
       console.error('❌ OneSignal push notification gönderilemedi:', oneSignalError);
       console.error('❌ OneSignal hata detayları:', oneSignalError.message, oneSignalError.stack);
