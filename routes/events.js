@@ -467,8 +467,8 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
           heading: notification.headings.en
         });
 
-        // Eski OneSignal client kullan (çalışan yöntem)
-        const response = await client.createNotification(notification);
+        // V2 API kullan (include_player_ids için daha güvenilir)
+        const response = await sendNotificationV2(notification);
         console.log('✅ OneSignal bildirimi başarıyla gönderildi!');
         console.log('✅ OneSignal yanıtı:', JSON.stringify(response, null, 2));
       } else {
