@@ -27,15 +27,11 @@ async function sendNotification(notification) {
     console.log('📲 OneSignal bildirimi gönderiliyor...');
     console.log('📲 Bildirim payload:', JSON.stringify(notification, null, 2));
     
-    // OneSignal REST API için Authorization header
-    // Format: "Basic " + base64(REST_API_KEY + ":")
-    const authHeader = Buffer.from(ONESIGNAL_REST_API_KEY + ':').toString('base64');
-    
-    console.log('🔐 Authorization Header Preview:', `Basic ${authHeader.substring(0, 20)}...`);
+    console.log('🔐 REST API Key başlangıcı:', ONESIGNAL_REST_API_KEY.substring(0, 20) + '...');
     
     const response = await axios.post('https://onesignal.com/api/v1/notifications', notification, {
       headers: {
-        'Authorization': `Basic ${authHeader}`,
+        'Authorization': `Basic ${ONESIGNAL_REST_API_KEY}`,
         'Content-Type': 'application/json'
       }
     });
