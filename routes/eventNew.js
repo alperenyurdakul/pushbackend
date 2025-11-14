@@ -8,6 +8,7 @@ const multer = require('multer');
 const path = require('path');
 const uploadS3 = require('../middleware/uploadS3');
 const { uploadBase64ToS3 } = require('../middleware/uploadS3');
+const OneSignalService = require('../services/oneSignalService');
 const OneSignal = require('onesignal-node');
 const axios = require('axios');
 
@@ -290,6 +291,34 @@ router.post('/:id/apply', authenticateToken, async (req, res) => {
     });
     
     await event.save();
+    
+    // Organizatöre bildirim gönder
+    try {
+      const organizer = await User.findById(event.organizerId);
+      if (organizer && organizer.oneSignalExternalId) {
+        console.log('📲 Organizatöre katılma isteği bildirimi gönderiliyor...');
+        
+        await OneSignalService.sendToUser(
+          organizer.oneSignalExternalId,
+          '🎉 Yeni Katılım İsteği!',
+          `${user.name}, "${event.title}" etkinliğinize katılmak istiyor.`,
+          {
+            type: 'new_participant_request',
+            eventId: event._id.toString(),
+            eventTitle: event.title,
+            participantName: user.name,
+            participantId: user._id.toString()
+          }
+        );
+        
+        console.log('✅ Organizatöre bildirim gönderildi!');
+      } else {
+        console.log('⚠️ Organizatör OneSignal ID bulunamadı');
+      }
+    } catch (notifError) {
+      console.error('❌ Organizatöre bildirim gönderme hatası:', notifError);
+      // Bildirim hatası başvuruyu etkilemesin
+    }
     
     res.json({
       success: true,
