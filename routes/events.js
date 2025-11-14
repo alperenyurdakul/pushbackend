@@ -28,7 +28,7 @@ async function sendNotificationV2(notification) {
     
     const response = await axios.post('https://api.onesignal.com/notifications', notification, {
       headers: {
-        'Authorization': `Key ${ONESIGNAL_REST_API_KEY}`,
+        'Authorization': `Bearer ${ONESIGNAL_REST_API_KEY}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
