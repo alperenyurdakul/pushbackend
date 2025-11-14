@@ -18,26 +18,28 @@ console.log('🔧 OneSignal Client başlatılıyor...');
 console.log('🔧 App ID:', ONESIGNAL_APP_ID);
 console.log('🔧 REST API Key (ilk 20 karakter):', ONESIGNAL_REST_API_KEY.substring(0, 20) + '...');
 
-const client = new OneSignal.Client(ONESIGNAL_APP_ID, ONESIGNAL_REST_API_KEY);
+// OneSignal client KULLANMAYIN - eski kütüphane, User Auth Key istiyor
+// const client = new OneSignal.Client(ONESIGNAL_APP_ID, ONESIGNAL_REST_API_KEY);
 
-// Yeni OneSignal API (v2) için direkt HTTP istek fonksiyonu
-async function sendNotificationV2(notification) {
+// OneSignal bildirim gönderme fonksiyonu (REST API Key ile - axios kullanır)
+async function sendNotification(notification) {
   try {
-    console.log('📲 OneSignal V2 API ile bildirim gönderiliyor...');
+    console.log('📲 OneSignal bildirimi gönderiliyor...');
     console.log('📲 Bildirim payload:', JSON.stringify(notification, null, 2));
     
-    const response = await axios.post('https://api.onesignal.com/notifications', notification, {
+    const response = await axios.post('https://onesignal.com/api/v1/notifications', notification, {
       headers: {
-        'Authorization': `Bearer ${ONESIGNAL_REST_API_KEY}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Authorization': `Basic ${ONESIGNAL_REST_API_KEY}`,
+        'Content-Type': 'application/json'
       }
     });
-    console.log('✅ OneSignal V2 bildirimi başarıyla gönderildi!');
-    console.log('✅ Yanıt:', response.data);
+    
+    console.log('✅ OneSignal bildirimi başarıyla gönderildi!');
+    console.log('✅ Yanıt:', JSON.stringify(response.data, null, 2));
+    console.log('✅ Recipients:', response.data?.recipients || 0);
     return response.data;
   } catch (error) {
-    console.error('❌ OneSignal V2 bildirim hatası!');
+    console.error('❌ OneSignal bildirim hatası!');
     console.error('❌ Status:', error.response?.status);
     console.error('❌ Hata detayı:', JSON.stringify(error.response?.data, null, 2));
     console.error('❌ Tam hata:', error.message);
@@ -319,38 +321,28 @@ async function sendEventNotificationToAllUsers(event) {
   }
 }
 
-// OneSignal ile bildirim gönderme fonksiyonu
+// OneSignal ile etkinlik bildirimi gönderme (tüm kullanıcılara)
 async function sendOneSignalNotification(event) {
-  try {
-    const notification = {
-      app_id: ONESIGNAL_APP_ID,
-      headings: { en: '🎉 Yeni Etkinlik!' },
-      contents: { en: `${event.title} - ${event.description}` },
-      data: {
-        eventId: event._id.toString(),
-        type: 'event',
-        title: event.title,
-        description: event.description,
-        location: event.location,
-        organizer: event.organizer,
-        eventTime: event.eventTime
-      },
-      included_segments: ['All'],
-      large_icon: event.image ? `http://localhost:5000/uploads/${event.image}` : undefined,
-      url: 'mobile://event/' + event._id
-    };
+  const notification = {
+    app_id: ONESIGNAL_APP_ID,
+    headings: { en: '🎉 Yeni Etkinlik!' },
+    contents: { en: `${event.title} - ${event.description}` },
+    data: {
+      eventId: event._id.toString(),
+      type: 'event',
+      title: event.title,
+      description: event.description,
+      location: event.location,
+      organizer: event.organizer,
+      eventTime: event.eventTime
+    },
+    included_segments: ['All'],
+    large_icon: event.image ? `http://localhost:5000/uploads/${event.image}` : undefined,
+    url: 'mobile://event/' + event._id
+  };
 
-    console.log('🔔 Etkinlik paylaşım bildirimi gönderiliyor...');
-    console.log('🔔 App ID:', ONESIGNAL_APP_ID);
-    console.log('🔔 Bildirim:', notification);
-
-    const response = await client.createNotification(notification);
-    console.log('OneSignal bildirimi gönderildi:', response);
-    return response;
-  } catch (error) {
-    console.error('OneSignal bildirim hatası:', error);
-    throw error;
-  }
+  console.log('🔔 Etkinlik paylaşım bildirimi gönderiliyor...');
+  return await sendNotification(notification);
 }
 
 // Katılımcı onay/red endpoint
@@ -467,13 +459,11 @@ router.put('/:eventId/participant/:participantId/approve', async (req, res) => {
           heading: notification.headings.en
         });
 
-        // Eski client kullan (etkinlik bildirimi gibi, o çalışıyor)
-        const response = await client.createNotification(notification);
+        // Axios ile direkt OneSignal API çağrısı yap
+        const response = await sendNotification(notification);
         console.log('✅ OneSignal bildirimi başarıyla gönderildi!');
-        console.log('✅ OneSignal yanıtı:', JSON.stringify(response, null, 2));
-        console.log('✅ OneSignal response.body:', JSON.stringify(response.body, null, 2));
         console.log('✅ Gönderilen Player ID:', playerId);
-        console.log('✅ Recipients:', response.body?.recipients || 'N/A');
+        console.log('✅ Recipients:', response.recipients || 0);
       } else {
         console.log('⚠️ Kullanıcı bulunamadı veya OneSignal Player ID yok!');
         console.log('⚠️ Detaylar:', { 
