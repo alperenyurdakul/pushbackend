@@ -45,12 +45,17 @@ function findNearbyBanners(userLocation, banners, radiusMeters = 200) {
     let bannerLat = null;
     let bannerLng = null;
 
-    // Önce restaurant.address.coordinates'ı kontrol et
-    if (banner.restaurant?.address?.coordinates) {
+    // 1. ÖNCELİK: bannerLocation.coordinates (Dashboard'dan manuel girilmiş)
+    if (banner.bannerLocation?.coordinates?.latitude && banner.bannerLocation?.coordinates?.longitude) {
+      bannerLat = banner.bannerLocation.coordinates.latitude;
+      bannerLng = banner.bannerLocation.coordinates.longitude;
+    }
+    // 2. ÖNCELİK: restaurant.address.coordinates
+    else if (banner.restaurant?.address?.coordinates) {
       bannerLat = banner.restaurant.address.coordinates.lat;
       bannerLng = banner.restaurant.address.coordinates.lng;
     }
-    // Eğer yoksa targetAudience.location.coordinates'ı kontrol et
+    // 3. ÖNCELİK: targetAudience.location.coordinates
     else if (banner.targetAudience?.location?.coordinates) {
       bannerLat = banner.targetAudience.location.coordinates.lat;
       bannerLng = banner.targetAudience.location.coordinates.lng;
@@ -99,10 +104,18 @@ function isNearBanner(userLocation, banner, radiusMeters = 200) {
   let bannerLat = null;
   let bannerLng = null;
 
-  if (banner.restaurant?.address?.coordinates) {
+  // 1. ÖNCELİK: bannerLocation.coordinates (Dashboard'dan manuel girilmiş)
+  if (banner.bannerLocation?.coordinates?.latitude && banner.bannerLocation?.coordinates?.longitude) {
+    bannerLat = banner.bannerLocation.coordinates.latitude;
+    bannerLng = banner.bannerLocation.coordinates.longitude;
+  }
+  // 2. ÖNCELİK: restaurant.address.coordinates
+  else if (banner.restaurant?.address?.coordinates) {
     bannerLat = banner.restaurant.address.coordinates.lat;
     bannerLng = banner.restaurant.address.coordinates.lng;
-  } else if (banner.targetAudience?.location?.coordinates) {
+  }
+  // 3. ÖNCELİK: targetAudience.location.coordinates
+  else if (banner.targetAudience?.location?.coordinates) {
     bannerLat = banner.targetAudience.location.coordinates.lat;
     bannerLng = banner.targetAudience.location.coordinates.lng;
   }

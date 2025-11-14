@@ -86,7 +86,11 @@ const bannerSchema = new mongoose.Schema({
   bannerLocation: {
     city: String,
     district: String,
-    address: String
+    address: String,
+    coordinates: {
+      latitude: Number,
+      longitude: Number
+    }
   },
   // Banner kategorisi
   category: {
