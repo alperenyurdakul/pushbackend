@@ -298,6 +298,12 @@ router.get('/test', (req, res) => {
 router.post('/generate-banner', async (req, res) => {
   try {
     const { restaurantId, restaurantName, title, campaignDescription, targetAudience, location, brandInfo, category, codeQuota, codeSettings, campaign, offerType, offerDetails, menu, bannerImage } = req.body;
+    
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📍 LOCATION DATA KONTROLÜ:');
+    console.log('location:', JSON.stringify(location, null, 2));
+    console.log('location.coordinates:', location?.coordinates);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // JWT token'dan kullanıcı bilgilerini al ve EN GÜNCEL halini veritabanından çek
     let user = null;
@@ -555,6 +561,14 @@ router.post('/generate-banner', async (req, res) => {
     }
     
     // Yeni banner oluştur
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📍 BANNER LOCATION OLUŞTURULUYOR:');
+    console.log('location.city:', location?.city);
+    console.log('location.district:', location?.district);
+    console.log('location.address:', location?.address);
+    console.log('location.coordinates:', JSON.stringify(location?.coordinates));
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     const newBanner = new Banner({
       restaurant: restaurant._id,
       title: title || aiResponse.data.title,
@@ -566,7 +580,8 @@ router.post('/generate-banner', async (req, res) => {
       bannerLocation: {
         city: location?.city || 'İstanbul',
         district: location?.district || 'Genel',
-        address: location?.address || ''
+        address: location?.address || '',
+        coordinates: location?.coordinates || { latitude: null, longitude: null }
       },
       campaign: {
         startDate: campaign?.startDate ? new Date(campaign.startDate) : new Date(),
@@ -635,6 +650,10 @@ router.post('/generate-banner', async (req, res) => {
 
     await newBanner.save();
     console.log('Yeni banner veritabanına kaydedildi (ONAY BEKLİYOR):', newBanner._id);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📍 KAYDEDİLEN BANNER LOCATION:');
+    console.log('bannerLocation:', JSON.stringify(newBanner.bannerLocation, null, 2));
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Kota güncellemesi
     if (restaurant) {
