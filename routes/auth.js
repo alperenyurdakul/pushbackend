@@ -202,6 +202,7 @@ router.post('/register', async (req, res) => {
       userType: userType || 'customer',
       category: category || 'Kahve', // Kategori kayıt sırasında belirlenir
       city: city || null, // Şehir kayıt sırasında belirlenir
+      oneSignalExternalId: phone, // Telefon numarasını External ID olarak kaydet
       restaurant: {
         name: name, // Restaurant adı marka adıyla aynı
         type: 'restaurant'
