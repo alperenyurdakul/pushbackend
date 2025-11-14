@@ -81,9 +81,9 @@ const upload = multer({
 // Etkinlik oluştur
 router.post('/create-event', upload.single('image'), async (req, res) => {
   try {
-    const { title, description, eventTime, location, organizer, options } = req.body;
+    const { title, description, eventTime, location, organizer, options, city, category } = req.body;
     
-    console.log('Gelen veriler:', { title, description, eventTime, location, organizer, options });
+    console.log('Gelen veriler:', { title, description, eventTime, location, organizer, options, city, category });
     console.log('Dosya:', req.file);
     
     // Etkinlik süresini hesapla (varsayılan 24 saat)
@@ -107,6 +107,8 @@ router.post('/create-event', upload.single('image'), async (req, res) => {
       eventTime: new Date(eventTime),
       location,
       organizer,
+      city,
+      category,
       options: parsedOptions.map(option => ({
         text: option,
         votes: 0,
@@ -330,33 +332,38 @@ async function sendEventNotificationToAllUsers(event) {
 // OneSignal ile etkinlik bildirimi gönderme (şehir ve kategori filtresine göre)
 async function sendOneSignalNotification(event) {
   try {
+    // Şehir bilgisini al (event.city veya event.address.city)
+    const eventCity = event.city || event.address?.city;
+    const eventCategory = event.category;
+    
     console.log('🔔 Filtreye uygun kullanıcıları buluyorum...');
-    console.log('📍 Etkinlik şehri:', event.city);
-    console.log('🏷️ Etkinlik kategorisi:', event.category);
+    console.log('📍 Etkinlik şehri:', eventCity);
+    console.log('🏷️ Etkinlik kategorisi:', eventCategory);
     
-    // Filtreleme kriteri oluştur
+    // Şehir ve kategori zorunlu! Yoksa hata
+    if (!eventCity || !eventCategory) {
+      console.error('❌ Etkinlik şehri veya kategorisi eksik! Bildirim gönderilemiyor.');
+      console.error('Event data:', { city: event.city, addressCity: event.address?.city, category: event.category });
+      throw new Error('Etkinlik şehri ve kategorisi zorunludur!');
+    }
+    
+    // Filtreleme kriteri oluştur (hem şehir hem kategori eşleşmeli)
     const filter = {
-      $or: [
-        // Şehir eşleşen kullanıcılar
-        { city: event.city },
-        // Veya preferences.city eşleşen kullanıcılar
-        { 'preferences.city': event.city }
-      ]
-    };
-    
-    // Kategori varsa kategori filtresi de ekle
-    if (event.category) {
-      filter.$and = [
-        { $or: filter.$or }, // Şehir filtresi
+      $and: [
         {
           $or: [
-            { category: event.category }, // Kullanıcının ana kategorisi
-            { 'preferences.categories': event.category } // Veya tercih ettiği kategoriler
+            { city: eventCity },
+            { 'preferences.city': eventCity }
+          ]
+        },
+        {
+          $or: [
+            { category: eventCategory },
+            { 'preferences.categories': eventCategory }
           ]
         }
-      ];
-      delete filter.$or; // $and kullanıyoruz artık
-    }
+      ]
+    };
     
     console.log('🔍 Filtre:', JSON.stringify(filter, null, 2));
     
