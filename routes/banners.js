@@ -235,7 +235,7 @@ router.post('/nearby', async (req, res) => {
 
     // Yakındakileri filtrele
     const userLocation = { latitude, longitude };
-    const nearbyBanners = findNearbyBanners(userLocation, banners, radius || 200);
+    const nearbyBanners = findNearbyBanners(userLocation, banners, radius || 700);
 
     console.log(`✅ ${nearbyBanners.length} yakın kampanya bulundu`);
 
