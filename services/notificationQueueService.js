@@ -262,8 +262,23 @@ const getFilteredUsers = async (filters = {}) => {
       console.log('🔍 Filtreleme mantığı: Sadece şehir VEYA kategori (OR)');
     }
 
-    console.log('🔍 Kullanıcı filtreleme query:', JSON.stringify(query, null, 2));
-    console.log(`📋 Filtreler: Şehir=${filters.city || 'Yok'}, Kategoriler=${filters.categories?.join(', ') || 'Yok'}`);
+    // Query'yi JSON'a çevir (regex'leri string olarak göster)
+    const queryForLog = JSON.parse(JSON.stringify(query, (key, val) => {
+      if (val instanceof RegExp) {
+        return `RegExp(${val.source}, ${val.flags})`;
+      }
+      return val;
+    }));
+    console.log('🔍 Kullanıcı filtreleme query:', JSON.stringify(queryForLog, null, 2));
+    console.log(`🔍 Şehir regex: ${cityConditions.length > 0 ? 'Oluşturuldu (' + filters.city + ')' : 'Yok'}`);
+    console.log(`🔍 Kategori array: ${categoryConditions.length > 0 ? JSON.stringify(filters.categories) : 'Yok'}`);
+    console.log(`📋 Filtreler: Şehir="${filters.city || 'Yok'}", Kategoriler=[${filters.categories?.join(', ') || 'Yok'}]`);
+    
+    // Debug: Toplam kullanıcı sayısını kontrol et
+    const totalUsersWithToken = await User.countDocuments({
+      pushToken: { $exists: true, $ne: null }
+    });
+    console.log(`📊 Database'de toplam ${totalUsersWithToken} kullanıcı var (pushToken'ı olan)`);
 
     const users = await User.find(query, {
       pushToken: 1,
