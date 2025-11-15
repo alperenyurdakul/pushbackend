@@ -209,6 +209,21 @@ const initializeAPNs = () => {
       console.log(`📝 Final key ilk 50 karakter: ${finalKey.substring(0, 50)}...`);
       console.log(`📝 Final key son 50 karakter: ...${finalKey.substring(finalKey.length - 50)}`);
       
+      // Ortadaki satırları (content satırlarını) kontrol et
+      if (finalKeyLines.length >= 3) {
+        for (let i = 1; i < finalKeyLines.length - 1; i++) {
+          const contentLine = finalKeyLines[i];
+          console.log(`📝 Satır ${i} (content): "${contentLine.substring(0, 50)}${contentLine.length > 50 ? '...' : ''}" (${contentLine.length} karakter)`);
+          
+          // Sonunda "/" veya whitespace var mı kontrol et
+          if (contentLine.endsWith('/') || contentLine.match(/[\/\s]+$/)) {
+            console.error(`❌ Satır ${i}'de sonunda "/" veya whitespace bulundu!`);
+            console.error(`   Orijinal: "${contentLine}"`);
+            console.error(`   Son 10 karakter: "${contentLine.substring(contentLine.length - 10)}"`);
+          }
+        }
+      }
+      
       try {
         apnsProvider = new apn.Provider({
           token: {
@@ -228,8 +243,20 @@ const initializeAPNs = () => {
         // Key formatını tekrar göster
         console.error('📝 Key format kontrolü:');
         console.error(`  İlk satır: "${finalKeyLines[0]}"`);
+        if (finalKeyLines.length >= 3) {
+          console.error(`  Ortadaki satır (content): "${finalKeyLines[1]}"`);
+          console.error(`  Ortadaki satır uzunluğu: ${finalKeyLines[1].length} karakter`);
+          console.error(`  Ortadaki satır son 20 karakter: "${finalKeyLines[1].substring(finalKeyLines[1].length - 20)}"`);
+        }
         console.error(`  Son satır: "${finalKeyLines[finalKeyLines.length - 1]}"`);
         console.error(`  Toplam satır: ${finalKeyLines.length}`);
+        
+        // Key'in tamamını göster (debug için)
+        console.error('📝 Final key (tamamı):');
+        console.error(finalKey.split('\n').map((line, idx) => `${idx}: "${line}"`).join('\n'));
+        
+        console.error('💡 ÖNERİ: Key\'in ortadaki satırında sonunda "/" karakteri olabilir.');
+        console.error('💡 Yeni bir key oluştur ve tekrar dene.');
         
         return false;
       }
