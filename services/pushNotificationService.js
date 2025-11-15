@@ -497,7 +497,7 @@ const sendAPNsNotification = async (token, title, body, data = {}) => {
     };
     notification.sound = 'default';
     notification.badge = 1;
-    notification.topic = process.env.APNS_BUNDLE_ID || 'com.faydana.app';
+    notification.topic = process.env.APNS_BUNDLE_ID || 'com.faydana.alperen';
     notification.payload = data;
 
     const result = await apnsProvider.send(notification, token);
