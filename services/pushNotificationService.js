@@ -130,26 +130,33 @@ const initializeAPNs = () => {
       let keyLines = apnsKey.split('\n');
       
       // Her satırı temizle: başındaki/sonundaki whitespace ve gereksiz karakterler
-      keyLines = keyLines.map(line => {
+      keyLines = keyLines.map((line, index) => {
+        const originalLine = line;
         line = line.trim();
+        
         // Sonundaki / karakterini KESINLIKLE temizle (tüm satırlarda)
-        line = line.replace(/\/+$/, '');
+        if (line.endsWith('/')) {
+          console.log(`⚠️ Satır ${index}'de sonunda "/" karakteri bulundu: "${line.substring(line.length - 10)}"`);
+          line = line.replace(/\/+$/, '');
+          console.log(`✅ Temizlendi: "${line.substring(line.length - 10)}"`);
+        }
+        
         // Sonundaki whitespace'leri de temizle
         line = line.replace(/\s+$/, '');
+        
+        // Özel kontrol: Key içeriği satırında sonunda "/" karakteri varsa temizle
+        // BEGIN ve END satırları hariç (ortadaki content satırlarını kontrol et)
+        if (index > 0 && index < keyLines.length - 1) {
+          // Sonunda "/" varsa KESINLIKLE temizle
+          if (line.match(/\/+\s*$/)) {
+            console.log(`⚠️ Content satır ${index}'de sonunda "/" veya whitespace bulundu: "${line.substring(Math.max(0, line.length - 20))}"`);
+            line = line.replace(/[\/\s]+$/, '');
+            console.log(`✅ Temizlendi: "${line.substring(Math.max(0, line.length - 20))}"`);
+          }
+        }
+        
         return line;
       }).filter(line => line.length > 0);
-      
-      // Özel kontrol: Key içeriği satırında sonunda "/" karakteri varsa temizle
-      // BEGIN ve END satırları hariç (ortadaki content satırlarını kontrol et)
-      keyLines = keyLines.map((line, index) => {
-        // BEGIN ve END satırları değilse ve sonunda "/" varsa temizle
-        if (index > 0 && index < keyLines.length - 1 && line.endsWith('/')) {
-          console.log(`⚠️ Satır ${index}'de sonunda "/" karakteri bulundu, temizleniyor: "${line}"`);
-          line = line.replace(/\/+$/, '');
-          console.log(`✅ Temizlendi: "${line}"`);
-        }
-        return line;
-      });
       
       // BEGIN ve END satırlarını kontrol et
       if (keyLines[0] !== '-----BEGIN PRIVATE KEY-----') {
