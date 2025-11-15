@@ -30,10 +30,10 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
  * Kullanıcı konumuna yakın kampanyaları filtrele
  * @param {Object} userLocation - { latitude, longitude }
  * @param {Array} banners - Kampanya listesi
- * @param {number} radiusMeters - Yarıçap (metre, varsayılan 700)
+ * @param {number} radiusMeters - Yarıçap (metre, varsayılan 100)
  * @returns {Array} - Yakındaki kampanyalar (mesafe bilgisiyle)
  */
-function findNearbyBanners(userLocation, banners, radiusMeters = 700) {
+function findNearbyBanners(userLocation, banners, radiusMeters = 100) {
   if (!userLocation || !userLocation.latitude || !userLocation.longitude) {
     return [];
   }
@@ -105,7 +105,7 @@ function findNearbyBanners(userLocation, banners, radiusMeters = 700) {
  * @param {number} radiusMeters - Yarıçap (metre)
  * @returns {boolean} - Yakında mı?
  */
-function isNearBanner(userLocation, banner, radiusMeters = 700) {
+function isNearBanner(userLocation, banner, radiusMeters = 100) {
   if (!userLocation || !userLocation.latitude || !userLocation.longitude) {
     return false;
   }

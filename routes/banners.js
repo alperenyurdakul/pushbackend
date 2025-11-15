@@ -224,7 +224,7 @@ router.post('/nearby', async (req, res) => {
     console.log('🔍 Yakındaki kampanyalar aranıyor:', { 
       latitude, 
       longitude, 
-      radius: radius || 700 
+      radius: radius || 100 
     });
     console.log('🆕 GÜNCEL KOD ÇALIŞIYOR - VERSION 2.0!');
 
@@ -239,10 +239,10 @@ router.post('/nearby', async (req, res) => {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🔍 GEOFENCING KONTROLÜ:');
     console.log('📍 Kullanıcı konumu:', userLocation);
-    console.log('📏 Yarıçap:', radius || 700, 'metre');
+    console.log('📏 Yarıçap:', radius || 100, 'metre');
     console.log('📦 Toplam aktif kampanya:', banners.length);
     
-    const nearbyBanners = findNearbyBanners(userLocation, banners, radius || 700);
+    const nearbyBanners = findNearbyBanners(userLocation, banners, radius || 100);
     
     console.log(`✅ ${nearbyBanners.length} yakın kampanya bulundu`);
     
