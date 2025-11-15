@@ -167,6 +167,19 @@ const userSchema = new mongoose.Schema({
   }
 });
 
+// Database index'leri (1M+ kullanıcı için performans)
+// Segmentasyon sorgularını hızlandırmak için
+userSchema.index({ city: 1 }); // Şehir filtreleme
+userSchema.index({ 'preferences.city': 1 }); // Preferences şehir filtreleme
+userSchema.index({ 'preferences.categories': 1 }); // Kategori filtreleme
+userSchema.index({ category: 1 }); // Marka kategorisi filtreleme
+userSchema.index({ pushPlatform: 1 }); // Platform filtreleme
+userSchema.index({ pushTokenType: 1 }); // Token type filtreleme
+// Composite index'ler (çoklu filtreleme için)
+userSchema.index({ city: 1, 'preferences.categories': 1 }); // Şehir + kategori
+userSchema.index({ 'preferences.city': 1, 'preferences.categories': 1 }); // Preferences şehir + kategori
+userSchema.index({ pushToken: 1, pushPlatform: 1 }); // Token + platform (hızlı lookup)
+
 // Şifre hash'leme
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();

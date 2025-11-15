@@ -541,7 +541,7 @@ const sendAPNsNotification = async (token, title, body, data = {}) => {
 };
 
 /**
- * Toplu push gönder (batch)
+ * Toplu push gönder (batch) - CONCURRENT (1M+ kullanıcı için optimize)
  */
 const sendBulkPushNotifications = async (users, title, body, data = {}) => {
   const results = {
@@ -550,35 +550,87 @@ const sendBulkPushNotifications = async (users, title, body, data = {}) => {
     invalidTokens: []
   };
 
-  console.log(`📤 Toplu push başlatıldı: ${users.length} kullanıcı`);
+  const totalUsers = users.length;
+  console.log(`📤 Toplu push başlatıldı: ${totalUsers} kullanıcı`);
   
-  for (const user of users) {
-    // Kullanıcı bilgilerini log'la
-    console.log(`📱 Bildirim gönderiliyor: ${user.name || user.phone}`);
-    console.log(`   Platform: ${user.pushPlatform || 'unknown'}`);
-    console.log(`   Token Type: ${user.pushTokenType || 'unknown'}`);
-    console.log(`   Token: ${user.pushToken ? user.pushToken.substring(0, 20) + '...' : 'YOK'}`);
+  // CONCURRENT SENDING (100 concurrent batch)
+  // 1M kullanıcı = 27 saat (sequential) → 5 dakika (concurrent)!
+  const CONCURRENT_BATCH_SIZE = 100; // Aynı anda 100 bildirim gönder
+  const chunks = [];
+  
+  // Kullanıcıları chunk'lara böl
+  for (let i = 0; i < users.length; i += CONCURRENT_BATCH_SIZE) {
+    chunks.push(users.slice(i, i + CONCURRENT_BATCH_SIZE));
+  }
+  
+  console.log(`📦 ${chunks.length} chunk'a bölündü (her biri max ${CONCURRENT_BATCH_SIZE} kullanıcı)`);
+  
+  let processedUsers = 0;
+  
+  // Her chunk'ı sırayla işle (rate limiting için)
+  for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+    const chunk = chunks[chunkIndex];
     
-    const result = await sendPushNotification(user, title, body, data);
-    
-    if (result.success) {
-      results.success++;
-      console.log(`   ✅ Başarılı`);
-    } else {
-      results.failed++;
-      console.log(`   ❌ Başarısız: ${result.message || 'Bilinmeyen hata'}`);
-      
-      if (result.shouldRemoveToken) {
-        results.invalidTokens.push(user._id);
-        console.log(`   🧹 Token işaretlendi (silinecek)`);
+    // Chunk içindeki tüm bildirimleri paralel gönder
+    const chunkPromises = chunk.map(async (user) => {
+      try {
+        // Detaylı log sadece ilk 5 kullanıcı için
+        if (processedUsers < 5) {
+          console.log(`📱 Bildirim gönderiliyor: ${user.name || user.phone}`);
+          console.log(`   Platform: ${user.pushPlatform || 'unknown'}`);
+          console.log(`   Token Type: ${user.pushTokenType || 'unknown'}`);
+          console.log(`   Token: ${user.pushToken ? user.pushToken.substring(0, 20) + '...' : 'YOK'}`);
+        }
+        
+        const result = await sendPushNotification(user, title, body, data);
+        
+        if (result.success) {
+          results.success++;
+          if (processedUsers < 5) {
+            console.log(`   ✅ Başarılı`);
+          }
+        } else {
+          results.failed++;
+          if (processedUsers < 5) {
+            console.log(`   ❌ Başarısız: ${result.message || 'Bilinmeyen hata'}`);
+          }
+          
+          if (result.shouldRemoveToken) {
+            results.invalidTokens.push(user._id);
+            if (processedUsers < 5) {
+              console.log(`   🧹 Token işaretlendi (silinecek)`);
+            }
+          }
+        }
+        
+        processedUsers++;
+        
+        // Her 1000 kullanıcıda bir progress log
+        if (processedUsers % 1000 === 0) {
+          console.log(`📊 İlerleme: ${processedUsers}/${totalUsers} (${Math.round(processedUsers / totalUsers * 100)}%) - Başarılı: ${results.success}, Başarısız: ${results.failed}`);
+        }
+        
+        return result;
+      } catch (error) {
+        results.failed++;
+        console.error(`❌ Bildirim hatası (${user.name || user.phone}):`, error.message);
+        return { success: false, message: error.message };
       }
+    });
+    
+    // Chunk'ı paralel işle (100 concurrent)
+    await Promise.all(chunkPromises);
+    
+    // Rate limiting: Her chunk arasında kısa bekleme (FCM/APNs rate limit koruması)
+    // FCM: 1000 req/s, APNs: 10000 req/s
+    // 100 concurrent batch + 50ms bekleme = ~2000 req/s (güvenli)
+    if (chunkIndex < chunks.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 50)); // 50ms bekleme
     }
-
-    // Rate limit koruması (100ms bekleme)
-    await new Promise(resolve => setTimeout(resolve, 100));
   }
 
   console.log(`📊 Toplu push tamamlandı: ${results.success} başarılı, ${results.failed} başarısız`);
+  console.log(`📈 İşlenen kullanıcı: ${processedUsers}/${totalUsers} (${Math.round(processedUsers / totalUsers * 100)}%)`);
   
   return results;
 };

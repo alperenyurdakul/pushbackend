@@ -127,22 +127,74 @@ const processNotificationGroup = async (type, notifications) => {
         continue;
       }
 
-      console.log(`📤 ${users.length} kullanıcıya bildirim gönderiliyor...`);
-
-      // Toplu push gönder
-      const result = await sendBulkPushNotifications(
-        users,
-        notification.title,
-        notification.body,
-        notification.data
-      );
-
-      console.log(`✅ ${result.success} başarılı, ${result.failed} başarısız`);
+      // BATCH SIZE LIMIT (1M+ kullanıcı için)
+      // 10,000 kullanıcıdan fazla gelirse chunk'lara böl
+      const MAX_BATCH_SIZE = 10000; // Her batch'te max 10k kullanıcı
       
-      // Geçersiz tokenları temizle
-      if (result.invalidTokens.length > 0) {
-        await cleanupInvalidTokens(result.invalidTokens);
-        console.log(`🧹 ${result.invalidTokens.length} geçersiz token temizlendi`);
+      if (users.length > MAX_BATCH_SIZE) {
+        console.log(`📦 ${users.length} kullanıcı ${MAX_BATCH_SIZE}'lik chunk'lara bölünüyor...`);
+        
+        const userChunks = [];
+        for (let i = 0; i < users.length; i += MAX_BATCH_SIZE) {
+          userChunks.push(users.slice(i, i + MAX_BATCH_SIZE));
+        }
+        
+        console.log(`📦 Toplam ${userChunks.length} chunk oluşturuldu`);
+        
+        let totalSuccess = 0;
+        let totalFailed = 0;
+        const allInvalidTokens = [];
+        
+        // Her chunk'ı sırayla işle
+        for (let chunkIndex = 0; chunkIndex < userChunks.length; chunkIndex++) {
+          const chunk = userChunks[chunkIndex];
+          console.log(`📤 Chunk ${chunkIndex + 1}/${userChunks.length}: ${chunk.length} kullanıcıya bildirim gönderiliyor...`);
+          
+          // Toplu push gönder
+          const result = await sendBulkPushNotifications(
+            chunk,
+            notification.title,
+            notification.body,
+            notification.data
+          );
+          
+          totalSuccess += result.success;
+          totalFailed += result.failed;
+          allInvalidTokens.push(...result.invalidTokens);
+          
+          console.log(`✅ Chunk ${chunkIndex + 1}/${userChunks.length} tamamlandı: ${result.success} başarılı, ${result.failed} başarısız`);
+          
+          // Her chunk arasında kısa bekleme (memory ve rate limit koruması)
+          if (chunkIndex < userChunks.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100)); // 100ms bekleme
+          }
+        }
+        
+        console.log(`✅ Tüm chunk'lar tamamlandı: ${totalSuccess} başarılı, ${totalFailed} başarısız`);
+        
+        // Geçersiz tokenları temizle
+        if (allInvalidTokens.length > 0) {
+          await cleanupInvalidTokens(allInvalidTokens);
+          console.log(`🧹 ${allInvalidTokens.length} geçersiz token temizlendi`);
+        }
+      } else {
+        console.log(`📤 ${users.length} kullanıcıya bildirim gönderiliyor...`);
+
+        // Toplu push gönder
+        const result = await sendBulkPushNotifications(
+          users,
+          notification.title,
+          notification.body,
+          notification.data
+        );
+
+        console.log(`✅ ${result.success} başarılı, ${result.failed} başarısız`);
+        
+        // Geçersiz tokenları temizle
+        if (result.invalidTokens.length > 0) {
+          await cleanupInvalidTokens(result.invalidTokens);
+          console.log(`🧹 ${result.invalidTokens.length} geçersiz token temizlendi`);
+        }
       }
     }
   } catch (error) {
