@@ -132,10 +132,24 @@ const initializeAPNs = () => {
       // Her satırı temizle: başındaki/sonundaki whitespace ve gereksiz karakterler
       keyLines = keyLines.map(line => {
         line = line.trim();
-        // Sonundaki / karakterini temizle
+        // Sonundaki / karakterini KESINLIKLE temizle (tüm satırlarda)
         line = line.replace(/\/+$/, '');
+        // Sonundaki whitespace'leri de temizle
+        line = line.replace(/\s+$/, '');
         return line;
       }).filter(line => line.length > 0);
+      
+      // Özel kontrol: Key içeriği satırında sonunda "/" karakteri varsa temizle
+      // BEGIN ve END satırları hariç (ortadaki content satırlarını kontrol et)
+      keyLines = keyLines.map((line, index) => {
+        // BEGIN ve END satırları değilse ve sonunda "/" varsa temizle
+        if (index > 0 && index < keyLines.length - 1 && line.endsWith('/')) {
+          console.log(`⚠️ Satır ${index}'de sonunda "/" karakteri bulundu, temizleniyor: "${line}"`);
+          line = line.replace(/\/+$/, '');
+          console.log(`✅ Temizlendi: "${line}"`);
+        }
+        return line;
+      });
       
       // BEGIN ve END satırlarını kontrol et
       if (keyLines[0] !== '-----BEGIN PRIVATE KEY-----') {
@@ -170,37 +184,55 @@ const initializeAPNs = () => {
       console.log(`📝 Key ID: ${process.env.APNS_KEY_ID}, Team ID: ${process.env.APNS_TEAM_ID}`);
       
       // Key-based authentication (önerilen)
-      // NOT: apn paketi key'i Buffer veya string olarak alabilir
-      // Buffer olarak geçmeyi dene (daha güvenli)
-      const keyBuffer = Buffer.from(normalizedKey, 'utf-8');
+      // NOT: apn paketi key'i string olarak alır (dosya yolu olarak algılayabilir)
+      // Bu yüzden direkt string geçiyoruz (Buffer değil)
       
-      console.log(`📝 Key Buffer oluşturuldu (${keyBuffer.length} byte)`);
-      console.log(`📝 Key Buffer başlangıcı: ${keyBuffer.toString('utf-8', 0, 50)}...`);
+      // Key'i son kontrol et - son satırda sadece END PRIVATE KEY olmalı
+      const finalKeyLines = normalizedKey.split('\n').filter(line => line.trim().length > 0);
+      if (finalKeyLines.length < 3) {
+        console.error('❌ APNs key format hatası: Key en az 3 satır olmalı (BEGIN, content, END)');
+        console.error(`📝 Mevcut satır sayısı: ${finalKeyLines.length}`);
+        return false;
+      }
+      
+      // Son satırı kontrol et - sadece END PRIVATE KEY olmalı
+      if (finalKeyLines[finalKeyLines.length - 1] !== '-----END PRIVATE KEY-----') {
+        console.error('❌ APNs key format hatası: Son satır sadece -----END PRIVATE KEY----- olmalı');
+        console.error(`📝 Son satır: "${finalKeyLines[finalKeyLines.length - 1]}"`);
+        return false;
+      }
+      
+      // Final key - sonundaki boş satırı kaldır
+      const finalKey = finalKeyLines.join('\n');
+      
+      console.log(`📝 Final key hazırlandı (${finalKey.length} karakter, ${finalKeyLines.length} satır)`);
+      console.log(`📝 Final key ilk 50 karakter: ${finalKey.substring(0, 50)}...`);
+      console.log(`📝 Final key son 50 karakter: ...${finalKey.substring(finalKey.length - 50)}`);
       
       try {
         apnsProvider = new apn.Provider({
           token: {
-            key: keyBuffer, // Buffer olarak geç (string değil)
+            key: finalKey, // String olarak geç (apn paketi string bekler)
             keyId: process.env.APNS_KEY_ID,
             teamId: process.env.APNS_TEAM_ID
           },
           production: process.env.APNS_PRODUCTION === 'true' || process.env.NODE_ENV === 'production'
         });
+        
+        console.log('✅ APNs Provider başlatıldı (Key-based)');
+        return true;
       } catch (providerError) {
-        // Buffer çalışmazsa string olarak dene
-        console.log('⚠️ Buffer ile hata, string olarak deneniyor...');
-        apnsProvider = new apn.Provider({
-          token: {
-            key: normalizedKey, // String olarak geç
-            keyId: process.env.APNS_KEY_ID,
-            teamId: process.env.APNS_TEAM_ID
-          },
-          production: process.env.APNS_PRODUCTION === 'true' || process.env.NODE_ENV === 'production'
-        });
+        console.error('❌ APNs Provider başlatma hatası:', providerError.message);
+        console.error('❌ Hata detayları:', providerError);
+        
+        // Key formatını tekrar göster
+        console.error('📝 Key format kontrolü:');
+        console.error(`  İlk satır: "${finalKeyLines[0]}"`);
+        console.error(`  Son satır: "${finalKeyLines[finalKeyLines.length - 1]}"`);
+        console.error(`  Toplam satır: ${finalKeyLines.length}`);
+        
+        return false;
       }
-
-      console.log('✅ APNs Provider başlatıldı (Key-based)');
-      return true;
     } else {
       console.error('❌ APNs credentials eksik:');
       if (!process.env.APNS_KEY_ID) {
