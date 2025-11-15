@@ -69,10 +69,27 @@ const initializeAPNs = () => {
   try {
     // APNs certificate veya key-based auth
     if (process.env.APNS_KEY_ID && process.env.APNS_TEAM_ID && process.env.APNS_KEY) {
+      // .env'deki \n karakterlerini gerçek newline'lara çevir
+      let apnsKey = process.env.APNS_KEY;
+      
+      // Eğer base64 encode edilmişse, decode et
+      if (process.env.APNS_KEY_BASE64) {
+        try {
+          apnsKey = Buffer.from(process.env.APNS_KEY_BASE64, 'base64').toString('utf-8');
+          console.log('📝 APNs key base64\'den decode edildi');
+        } catch (base64Error) {
+          console.error('❌ APNs key base64 decode hatası:', base64Error.message);
+          console.log('💡 APNS_KEY direkt kullanılıyor');
+        }
+      }
+      
+      // \n karakterlerini gerçek newline'lara çevir
+      apnsKey = apnsKey.replace(/\\n/g, '\n');
+      
       // Key-based authentication (önerilen)
       apnsProvider = new apn.Provider({
         token: {
-          key: process.env.APNS_KEY,
+          key: apnsKey,
           keyId: process.env.APNS_KEY_ID,
           teamId: process.env.APNS_TEAM_ID
         },
