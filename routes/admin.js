@@ -167,31 +167,39 @@ router.post('/banners/:id/approve', adminAuth, async (req, res) => {
       approvedBy: req.user.name
     });
 
-    // Onaylandıktan sonra bildirim gönder
+    // Onaylandıktan sonra bildirim gönder (BATCH NOTIFICATION SİSTEMİ)
     try {
-      console.log('📱 Onaylanan banner için bildirim gönderiliyor...');
+      console.log('📱 Onaylanan banner batch\'e eklendi (15dk sonra gönderilecek)...');
       const bannerCity = banner.bannerLocation?.city || null;
       const bannerCategory = banner.category || null;
       
       // contentType'a göre bildirim başlığını belirle
       const notificationTitle = banner.contentType === 'event' ? '🎪 Yeni Etkinlik!' : '🎉 Yeni Kampanya!';
       
-      const oneSignalResult = await OneSignalService.sendToAll(
-        notificationTitle,
-        `${banner.restaurant.name} - ${banner.description}`,
-        { 
+      // Batch notification sistemine ekle (15 dakika sonra toplu gönderilecek)
+      const { addNotificationToBatch } = require('../services/notificationQueueService');
+      
+      addNotificationToBatch({
+        type: banner.contentType === 'event' ? 'event' : 'campaign',
+        title: notificationTitle,
+        body: `${banner.restaurant.name} - ${banner.description}`,
+        data: { 
           type: banner.contentType === 'event' ? 'new_event' : 'new_banner',
           bannerId: banner._id.toString(),
           restaurantName: banner.restaurant.name,
           contentType: banner.contentType,
           timestamp: new Date().toISOString()
         },
-        bannerCity,  // Şehir filtresi
-        bannerCategory  // Kategori filtresi
-      );
-      console.log('✅ OneSignal push notification gönderildi:', oneSignalResult);
-    } catch (oneSignalError) {
-      console.error('❌ OneSignal push notification gönderilemedi:', oneSignalError);
+        filters: {
+          city: bannerCity,
+          categories: bannerCategory ? [bannerCategory] : []
+        }
+      });
+      
+      console.log('✅ Bildirim batch\'e eklendi (15 dakika sonra gönderilecek)');
+    } catch (notificationError) {
+      console.error('❌ Batch notification ekleme hatası:', notificationError);
+      // Hata olsa bile banner onayı başarılı olarak işaretlenmiş olsun
     }
 
     res.json({
@@ -474,13 +482,14 @@ router.post('/events/:id/approve', adminAuth, async (req, res) => {
         console.log(`✅ Şehir filtresi uygulanacak: "${eventCity}"`);
       }
       
-      // Event bildirimleri için sadece şehir filtresi kullan (kategori filtresi kaldırıldı)
-      // Çünkü kullanıcılar kategori tercihi belirtmişse ve o kategoride değilse bildirim almamalı
-      // Ama kategori tercihi olmayanlar da dahil edilmeli - bu karmaşık olduğu için şimdilik sadece şehir filtresi
-      const oneSignalResult = await OneSignalService.sendToAll(
-        '🎪 Yeni Etkinlik!',
-        `${event.title} - ${event.organizerName}`,
-        { 
+      // Event bildirimleri için batch notification sistemine ekle (15 dakika sonra toplu gönderilecek)
+      const { addNotificationToBatch } = require('../services/notificationQueueService');
+      
+      addNotificationToBatch({
+        type: 'event',
+        title: '🎪 Yeni Etkinlik!',
+        body: `${event.title} - ${event.organizerName}`,
+        data: { 
           type: 'new_event',
           eventId: event._id.toString(),
           title: event.title,
@@ -488,10 +497,13 @@ router.post('/events/:id/approve', adminAuth, async (req, res) => {
           category: eventCategory,
           timestamp: new Date().toISOString()
         },
-        eventCity,  // Şehir filtresi
-        null  // Kategori filtresi kaldırıldı - sadece şehir bazlı bildirim
-      );
-      console.log('✅ OneSignal push notification gönderildi:', oneSignalResult);
+        filters: {
+          city: eventCity,
+          categories: eventCategory ? [eventCategory] : []
+        }
+      });
+      
+      console.log('✅ Event bildirimi batch\'e eklendi (15 dakika sonra gönderilecek)');
       
       // Organizatöre de bildirim gönder
       if (event.organizerId && event.organizerId.oneSignalExternalId) {
@@ -529,6 +541,26 @@ router.post('/events/:id/approve', adminAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Event onaylanırken hata oluştu!'
+    });
+  }
+});
+
+// TEST: Batch'i manuel olarak tetikle (sadece test için)
+router.post('/test/batch-trigger', adminAuth, async (req, res) => {
+  try {
+    const { triggerBatchManually } = require('../services/notificationQueueService');
+    await triggerBatchManually();
+    
+    res.json({
+      success: true,
+      message: 'Batch manuel olarak tetiklendi!'
+    });
+  } catch (error) {
+    console.error('❌ Batch tetikleme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Batch tetiklenirken hata oluştu!',
+      error: error.message
     });
   }
 });

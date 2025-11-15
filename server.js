@@ -95,6 +95,15 @@ app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route bulunamadı!' });
 });
 
+// Batch Notification Job'ı başlat (15 dakika batch için)
+try {
+  const { startBatchJob } = require('./services/notificationQueueService');
+  startBatchJob();
+  console.log('✅ Batch notification job başlatıldı (15 dakika)');
+} catch (error) {
+  console.log('⚠️ Batch notification job başlatılamadı (Redis yoksa normal):', error.message);
+}
+
 // HTTP Server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 HTTP Server ${PORT} portunda çalışıyor`);

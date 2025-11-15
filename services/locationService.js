@@ -70,6 +70,13 @@ function findNearbyBanners(userLocation, banners, radiusMeters = 700) {
         bannerLng
       );
 
+      // DEBUG: Her kampanya için log
+      console.log(`  📍 ${banner.restaurant?.name || 'İsimsiz'}:`);
+      console.log(`     Banner: ${bannerLat}, ${bannerLng}`);
+      console.log(`     Kullanıcı: ${userLocation.latitude}, ${userLocation.longitude}`);
+      console.log(`     Mesafe: ${Math.round(distance)}m (Yarıçap: ${radiusMeters}m)`);
+      console.log(`     İçinde mi? ${distance <= radiusMeters ? '✅ EVET' : '❌ HAYIR'}`);
+
       // Yarıçap içindeyse listeye ekle
       if (distance <= radiusMeters) {
         nearbyBanners.push({
@@ -80,6 +87,8 @@ function findNearbyBanners(userLocation, banners, radiusMeters = 700) {
             : `${(distance / 1000).toFixed(1)}km`
         });
       }
+    } else {
+      console.log(`  ⚠️ ${banner.restaurant?.name || 'İsimsiz'}: Koordinat yok!`);
     }
   }
 
