@@ -94,6 +94,36 @@ const processNotificationGroup = async (type, notifications) => {
 
       if (users.length === 0) {
         console.log(`⚠️ ${type} için filtreye uygun kullanıcı bulunamadı`);
+        // Fallback: Filtreye uygun kullanıcı bulunamazsa, tüm pushToken'ı olan kullanıcılara gönder
+        console.log('💡 Fallback: Tüm pushToken\'ı olan kullanıcılara gönderiliyor...');
+        const allUsers = await User.find(
+          { pushToken: { $exists: true, $ne: null } },
+          { pushToken: 1, pushPlatform: 1, pushTokenType: 1, name: 1, phone: 1 }
+        );
+        
+        if (allUsers.length === 0) {
+          console.log('⚠️ Hiç pushToken\'ı olan kullanıcı yok!');
+          continue;
+        }
+        
+        console.log(`📤 ${allUsers.length} kullanıcıya bildirim gönderiliyor (fallback)...`);
+        
+        // Toplu push gönder
+        const result = await sendBulkPushNotifications(
+          allUsers,
+          notification.title,
+          notification.body,
+          notification.data
+        );
+
+        console.log(`✅ ${result.success} başarılı, ${result.failed} başarısız`);
+        
+        // Geçersiz tokenları temizle
+        if (result.invalidTokens.length > 0) {
+          await cleanupInvalidTokens(result.invalidTokens);
+          console.log(`🧹 ${result.invalidTokens.length} geçersiz token temizlendi`);
+        }
+        
         continue;
       }
 
@@ -183,6 +213,7 @@ const aggregateNotifications = (notifications) => {
 
 /**
  * Segmentasyon filtresine göre kullanıcıları getir
+ * AND mantığı: Hem şehir hem kategori eşleşmeli (ikisi de varsa)
  */
 const getFilteredUsers = async (filters = {}) => {
   try {
@@ -190,33 +221,69 @@ const getFilteredUsers = async (filters = {}) => {
       pushToken: { $exists: true, $ne: null } // Push token'ı olan kullanıcılar
     };
 
-    // Şehir filtresi
-    if (filters.city) {
-      query.$or = [
-        { city: filters.city },
-        { 'preferences.city': filters.city }
-      ];
-    }
-
-    // Kategori filtresi
-    if (filters.categories && filters.categories.length > 0) {
-      if (!query.$or) query.$or = [];
-      query.$or.push(
-        { category: { $in: filters.categories } },
-        { 'preferences.categories': { $in: filters.categories } }
+    // Şehir filtresi (case-insensitive)
+    const cityConditions = [];
+    if (filters.city && filters.city.trim() !== '') {
+      const cityRegex = new RegExp(filters.city.trim(), 'i');
+      cityConditions.push(
+        { city: cityRegex },
+        { 'preferences.city': cityRegex }
       );
     }
 
-    // Aktif kullanıcılar (son 30 gün içinde login olanlar - opsiyonel)
-    // query.lastLoginAt = { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) };
+    // Kategori filtresi
+    const categoryConditions = [];
+    if (filters.categories && filters.categories.length > 0) {
+      const categoryArray = Array.isArray(filters.categories) ? filters.categories : [filters.categories];
+      categoryConditions.push(
+        { category: { $in: categoryArray } },
+        { 'preferences.categories': { $in: categoryArray } }
+      );
+    }
+
+    // AND mantığı: Hem şehir hem kategori eşleşmeli (ikisi de varsa)
+    const andConditions = [];
+    
+    if (cityConditions.length > 0) {
+      andConditions.push({ $or: cityConditions });
+    }
+    
+    if (categoryConditions.length > 0) {
+      andConditions.push({ $or: categoryConditions });
+    }
+
+    // Eğer hem şehir hem kategori filtresi varsa, $and kullan
+    if (andConditions.length > 1) {
+      query.$and = andConditions;
+      console.log('🔍 Filtreleme mantığı: ŞEHİR VE KATEGORİ (AND)');
+    } else if (andConditions.length === 1) {
+      // Sadece şehir VEYA sadece kategori filtresi varsa
+      query.$or = andConditions[0].$or;
+      console.log('🔍 Filtreleme mantığı: Sadece şehir VEYA kategori (OR)');
+    }
+
+    console.log('🔍 Kullanıcı filtreleme query:', JSON.stringify(query, null, 2));
+    console.log(`📋 Filtreler: Şehir=${filters.city || 'Yok'}, Kategoriler=${filters.categories?.join(', ') || 'Yok'}`);
 
     const users = await User.find(query, {
       pushToken: 1,
       pushPlatform: 1,
       pushTokenType: 1,
       name: 1,
-      phone: 1
+      phone: 1,
+      city: 1,
+      'preferences.city': 1,
+      'preferences.categories': 1
     });
+
+    console.log(`📊 Filtreleme sonucu: ${users.length} kullanıcı bulundu`);
+    
+    // Bulunan kullanıcıların detaylarını göster (debug için)
+    if (users.length > 0 && users.length <= 5) {
+      users.forEach((user, index) => {
+        console.log(`  ${index + 1}. ${user.name} - Şehir: ${user.city || user.preferences?.city || 'Yok'}, Kategoriler: ${user.preferences?.categories?.join(', ') || 'Yok'}`);
+      });
+    }
 
     return users;
   } catch (error) {
@@ -297,4 +364,3 @@ module.exports = {
   shutdown,
   triggerBatchManually
 };
-
