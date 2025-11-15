@@ -240,14 +240,40 @@ const initializeAPNs = () => {
       
       try {
         // Key'i dosyaya yaz (kesinlikle doğru format)
-        fs.writeFileSync(tempKeyPath, finalKey, { encoding: 'utf8', mode: 0o600 });
+        // PEM formatı için sonunda newline OLMALI
+        const keyToWrite = finalKey.endsWith('\n') ? finalKey : finalKey + '\n';
+        
+        fs.writeFileSync(tempKeyPath, keyToWrite, { encoding: 'utf8', mode: 0o600 });
         console.log(`📝 Key geçici dosyaya yazıldı: ${tempKeyPath}`);
+        console.log(`📝 Dosyaya yazılan key uzunluğu: ${keyToWrite.length} karakter`);
         
         // Dosyadan oku ve kontrol et
         const readBackKey = fs.readFileSync(tempKeyPath, 'utf8');
         console.log(`📝 Dosyadan okunan key uzunluğu: ${readBackKey.length} karakter`);
+        console.log(`📝 Dosyadan okunan key son 50 karakter: ...${readBackKey.substring(readBackKey.length - 50)}`);
+        
+        // Dosya içeriğini doğrula
+        const fileLines = readBackKey.split('\n').filter(line => line.trim().length > 0);
+        console.log(`📝 Dosya içeriği satır sayısı: ${fileLines.length}`);
+        console.log(`📝 Dosya içeriği ilk satır: "${fileLines[0]}"`);
+        console.log(`📝 Dosya içeriği son satır: "${fileLines[fileLines.length - 1]}"`);
+        
+        if (fileLines.length >= 3) {
+          console.log(`📝 Dosya içeriği ortadaki satır uzunluğu: ${fileLines[1].length} karakter`);
+          console.log(`📝 Dosya içeriği ortadaki satır son 20 karakter: "${fileLines[1].substring(Math.max(0, fileLines[1].length - 20))}"`);
+        }
+        
+        // PEM format kontrolü
+        if (!readBackKey.includes('-----BEGIN PRIVATE KEY-----') || !readBackKey.includes('-----END PRIVATE KEY-----')) {
+          console.error('❌ Key dosyası PEM formatında değil!');
+          return false;
+        }
         
         // Dosya yolunu kullan (apn paketi dosya yolunu tercih eder)
+        console.log(`📝 APNs Provider oluşturuluyor (dosya yolu ile)...`);
+        console.log(`📝 Key ID: ${process.env.APNS_KEY_ID}, Team ID: ${process.env.APNS_TEAM_ID}`);
+        console.log(`📝 Production: ${process.env.APNS_PRODUCTION === 'true' || process.env.NODE_ENV === 'production'}`);
+        
         apnsProvider = new apn.Provider({
           token: {
             key: tempKeyPath, // Dosya yolu olarak geç (en güvenli)
@@ -352,21 +378,59 @@ const sendPushNotification = async (user, title, body, data = {}) => {
     }
 
     const platform = user.pushPlatform;
+    const tokenType = user.pushTokenType;
     const token = user.pushToken;
 
-    if (platform === 'android' || user.pushTokenType === 'fcm') {
+    // Platform tespiti (önce token type, sonra platform)
+    let targetPlatform = null;
+    
+    if (tokenType === 'fcm') {
+      targetPlatform = 'fcm';
+    } else if (tokenType === 'apns') {
+      targetPlatform = 'apns';
+    } else if (platform === 'android') {
+      targetPlatform = 'fcm';
+    } else if (platform === 'ios') {
+      targetPlatform = 'apns';
+    } else {
+      // Token formatına göre tespit et
+      // FCM token genelde daha uzun ve farklı format
+      // APNs token (Expo push token) genelde "ExponentPushToken[...]" ile başlar
+      if (token.startsWith('ExponentPushToken[')) {
+        // Expo push token - platform'a göre karar ver
+        // Android için FCM, iOS için APNs kullanılır
+        // Ama Expo token'ı direkt kullanılamaz, Expo Push Notification service kullanılmalı
+        console.log(`⚠️ Expo push token algılandı: ${token.substring(0, 30)}...`);
+        console.log(`   Bu token direkt FCM/APNs ile gönderilemez, Expo Push Notification service kullanılmalı`);
+        return { success: false, message: 'Expo push token - direkt FCM/APNs ile gönderilemez' };
+      } else if (token.length > 100) {
+        // Uzun token - muhtemelen FCM
+        targetPlatform = 'fcm';
+        console.log(`💡 Token uzunluğuna göre FCM olarak kabul edildi`);
+      } else {
+        // Kısa token - muhtemelen APNs
+        targetPlatform = 'apns';
+        console.log(`💡 Token uzunluğuna göre APNs olarak kabul edildi`);
+      }
+    }
+
+    if (targetPlatform === 'fcm') {
       // FCM (Android)
+      console.log(`📱 FCM bildirimi gönderiliyor...`);
       return await sendFCMNotification(token, title, body, data);
-    } else if (platform === 'ios' || user.pushTokenType === 'apns') {
+    } else if (targetPlatform === 'apns') {
       // APNs (iOS)
+      console.log(`📱 APNs bildirimi gönderiliyor...`);
       return await sendAPNsNotification(token, title, body, data);
     } else {
-      console.log(`⚠️ Bilinmeyen platform: ${platform}`);
+      console.log(`⚠️ Bilinmeyen platform: platform=${platform}, tokenType=${tokenType}`);
       return { success: false, message: 'Bilinmeyen platform' };
     }
   } catch (error) {
     console.error('❌ Push gönderme hatası:', error);
-    return { success: false, message: error.message };
+    console.error('   Error message:', error.message);
+    console.error('   Error stack:', error.stack);
+    return { success: false, message: error.message || 'Push gönderme hatası' };
   }
 };
 
@@ -438,25 +502,41 @@ const sendAPNsNotification = async (token, title, body, data = {}) => {
 
     const result = await apnsProvider.send(notification, token);
 
-    if (result.sent.length > 0) {
+    console.log(`📱 APNs send sonucu:`, JSON.stringify(result, null, 2));
+
+    if (result.sent && result.sent.length > 0) {
       console.log(`✅ APNs bildirimi gönderildi: ${result.sent[0]}`);
       return { success: true, messageId: result.sent[0] };
-    } else if (result.failed.length > 0) {
+    } else if (result.failed && result.failed.length > 0) {
       const failure = result.failed[0];
-      console.error(`❌ APNs gönderme hatası: ${failure.error}`);
+      
+      // Detaylı hata log'u
+      console.error(`❌ APNs gönderme hatası:`);
+      console.error(`   Failure objesi:`, JSON.stringify(failure, null, 2));
+      console.error(`   Failure.error:`, failure.error);
+      console.error(`   Failure.response:`, failure.response);
+      console.error(`   Failure.device:`, failure.device);
+      console.error(`   Failure.status:`, failure.status);
+      
+      const errorMessage = failure.error || failure.response?.reason || failure.response?.reason || 'Bilinmeyen APNs hatası';
+      console.error(`   Hata mesajı: ${errorMessage}`);
 
       // Invalid token kontrolü
-      if (failure.error === 'BadDeviceToken' || failure.error === 'Unregistered') {
+      const errorCode = failure.error || failure.response?.reason || '';
+      if (errorCode === 'BadDeviceToken' || errorCode === 'Unregistered' || errorCode === '410') {
         return { success: false, message: 'Invalid token', shouldRemoveToken: true };
       }
 
-      return { success: false, message: failure.error };
+      return { success: false, message: errorMessage };
     }
 
-    return { success: false, message: 'Bilinmeyen hata' };
+    console.error(`⚠️ APNs sonucu beklenmedik:`, JSON.stringify(result, null, 2));
+    return { success: false, message: 'Bilinmeyen hata - result yapısı beklenmedik' };
   } catch (error) {
-    console.error('❌ APNs gönderme hatası:', error);
-    return { success: false, message: error.message };
+    console.error('❌ APNs gönderme hatası (catch):', error);
+    console.error('   Error message:', error.message);
+    console.error('   Error stack:', error.stack);
+    return { success: false, message: error.message || 'APNs gönderme hatası' };
   }
 };
 
@@ -470,16 +550,27 @@ const sendBulkPushNotifications = async (users, title, body, data = {}) => {
     invalidTokens: []
   };
 
+  console.log(`📤 Toplu push başlatıldı: ${users.length} kullanıcı`);
+  
   for (const user of users) {
+    // Kullanıcı bilgilerini log'la
+    console.log(`📱 Bildirim gönderiliyor: ${user.name || user.phone}`);
+    console.log(`   Platform: ${user.pushPlatform || 'unknown'}`);
+    console.log(`   Token Type: ${user.pushTokenType || 'unknown'}`);
+    console.log(`   Token: ${user.pushToken ? user.pushToken.substring(0, 20) + '...' : 'YOK'}`);
+    
     const result = await sendPushNotification(user, title, body, data);
     
     if (result.success) {
       results.success++;
+      console.log(`   ✅ Başarılı`);
     } else {
       results.failed++;
+      console.log(`   ❌ Başarısız: ${result.message || 'Bilinmeyen hata'}`);
       
       if (result.shouldRemoveToken) {
         results.invalidTokens.push(user._id);
+        console.log(`   🧹 Token işaretlendi (silinecek)`);
       }
     }
 
@@ -487,6 +578,8 @@ const sendBulkPushNotifications = async (users, title, body, data = {}) => {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
 
+  console.log(`📊 Toplu push tamamlandı: ${results.success} başarılı, ${results.failed} başarısız`);
+  
   return results;
 };
 
