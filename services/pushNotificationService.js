@@ -224,19 +224,57 @@ const initializeAPNs = () => {
         }
       }
       
+      // Key'i geçici dosyaya yaz ve dosya yolunu kullan (en güvenli yöntem)
+      const fs = require('fs');
+      const path = require('path');
+      const os = require('os');
+      
+      const tempKeyPath = path.join(os.tmpdir(), `apns-key-${Date.now()}.p8`);
+      
       try {
+        // Key'i dosyaya yaz (kesinlikle doğru format)
+        fs.writeFileSync(tempKeyPath, finalKey, { encoding: 'utf8', mode: 0o600 });
+        console.log(`📝 Key geçici dosyaya yazıldı: ${tempKeyPath}`);
+        
+        // Dosyadan oku ve kontrol et
+        const readBackKey = fs.readFileSync(tempKeyPath, 'utf8');
+        console.log(`📝 Dosyadan okunan key uzunluğu: ${readBackKey.length} karakter`);
+        
+        // Dosya yolunu kullan (apn paketi dosya yolunu tercih eder)
         apnsProvider = new apn.Provider({
           token: {
-            key: finalKey, // String olarak geç (apn paketi string bekler)
+            key: tempKeyPath, // Dosya yolu olarak geç (en güvenli)
             keyId: process.env.APNS_KEY_ID,
             teamId: process.env.APNS_TEAM_ID
           },
           production: process.env.APNS_PRODUCTION === 'true' || process.env.NODE_ENV === 'production'
         });
         
-        console.log('✅ APNs Provider başlatıldı (Key-based)');
+        console.log('✅ APNs Provider başlatıldı (Key-based - dosya yolu ile)');
+        
+        // Geçici dosyayı temizleme işini shutdown'a bırak
+        // (uygulama kapanırken temizlenecek)
+        process.on('exit', () => {
+          try {
+            if (fs.existsSync(tempKeyPath)) {
+              fs.unlinkSync(tempKeyPath);
+              console.log(`🧹 Geçici key dosyası temizlendi: ${tempKeyPath}`);
+            }
+          } catch (err) {
+            // Ignore
+          }
+        });
+        
         return true;
       } catch (providerError) {
+        // Hata durumunda geçici dosyayı temizle
+        try {
+          if (fs.existsSync(tempKeyPath)) {
+            fs.unlinkSync(tempKeyPath);
+          }
+        } catch (err) {
+          // Ignore
+        }
         console.error('❌ APNs Provider başlatma hatası:', providerError.message);
         console.error('❌ Hata detayları:', providerError);
         
