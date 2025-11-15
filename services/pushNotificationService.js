@@ -31,13 +31,19 @@ const initializeFCM = () => {
 
       fcmInitialized = true;
       console.log('✅ Firebase Admin SDK başlatıldı (FCM)');
+      console.log(`📱 Firebase Project ID: ${serviceAccount.project_id || 'N/A'}`);
       return true;
     } else {
       console.log('⚠️ Firebase service account key bulunamadı, FCM devre dışı');
+      console.log('💡 .env dosyasında FIREBASE_SERVICE_ACCOUNT_KEY kontrol et');
       return false;
     }
   } catch (error) {
     console.error('❌ Firebase Admin SDK başlatma hatası:', error);
+    console.error('❌ Hata detayları:', error.message);
+    if (error.message && error.message.includes('JSON')) {
+      console.error('💡 FIREBASE_SERVICE_ACCOUNT_KEY geçersiz JSON olabilir');
+    }
     return false;
   }
 };
@@ -244,12 +250,42 @@ const sendBulkPushNotifications = async (users, title, body, data = {}) => {
   return results;
 };
 
+/**
+ * Backend başlangıcında Firebase/APNs'i test et
+ */
+const testPushNotificationSetup = () => {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('🧪 PUSH NOTIFICATION SETUP TEST');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
+  // Firebase test
+  const fcmResult = initializeFCM();
+  if (fcmResult) {
+    console.log('✅ Firebase (FCM) hazır - Android bildirimleri aktif');
+  } else {
+    console.log('⚠️ Firebase (FCM) devre dışı - Android bildirimleri çalışmayacak');
+  }
+  
+  // APNs test
+  const apnsResult = initializeAPNs();
+  if (apnsResult) {
+    console.log('✅ APNs hazır - iOS bildirimleri aktif');
+  } else {
+    console.log('⚠️ APNs devre dışı - iOS bildirimleri çalışmayacak');
+  }
+  
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
+  return { fcm: fcmResult, apns: apnsResult };
+};
+
 module.exports = {
   initializeFCM,
   initializeAPNs,
   sendPushNotification,
   sendFCMNotification,
   sendAPNsNotification,
-  sendBulkPushNotifications
+  sendBulkPushNotifications,
+  testPushNotificationSetup
 };
 

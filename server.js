@@ -104,6 +104,14 @@ try {
   console.log('⚠️ Batch notification job başlatılamadı (Redis yoksa normal):', error.message);
 }
 
+// Push Notification Setup Test (Firebase/APNs)
+try {
+  const { testPushNotificationSetup } = require('./services/pushNotificationService');
+  testPushNotificationSetup();
+} catch (error) {
+  console.log('⚠️ Push notification setup test hatası:', error.message);
+}
+
 // HTTP Server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 HTTP Server ${PORT} portunda çalışıyor`);
