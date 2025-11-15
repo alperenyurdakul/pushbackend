@@ -253,27 +253,3 @@ module.exports = {
   sendBulkPushNotifications
 };
 
-
-};
-
-module.exports = {
-  initializeFCM,
-  initializeAPNs,
-  sendPushNotification,
-  sendFCMNotification,
-  sendAPNsNotification,
-  sendBulkPushNotifications
-};
-
-
-};
-
-module.exports = {
-  initializeFCM,
-  initializeAPNs,
-  sendPushNotification,
-  sendFCMNotification,
-  sendAPNsNotification,
-  sendBulkPushNotifications
-};
-
