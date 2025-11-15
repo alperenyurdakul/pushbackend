@@ -235,9 +235,31 @@ router.post('/nearby', async (req, res) => {
 
     // Yakındakileri filtrele
     const userLocation = { latitude, longitude };
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🔍 GEOFENCING KONTROLÜ:');
+    console.log('📍 Kullanıcı konumu:', userLocation);
+    console.log('📏 Yarıçap:', radius || 700, 'metre');
+    console.log('📦 Toplam aktif kampanya:', banners.length);
+    
     const nearbyBanners = findNearbyBanners(userLocation, banners, radius || 700);
-
+    
     console.log(`✅ ${nearbyBanners.length} yakın kampanya bulundu`);
+    
+    if (nearbyBanners.length > 0) {
+      nearbyBanners.forEach(banner => {
+        console.log(`  📍 ${banner.restaurant?.name || 'İsimsiz'} - ${banner.distanceText} uzaklıkta`);
+        console.log(`     Koordinatlar: ${banner.bannerLocation?.coordinates?.latitude}, ${banner.bannerLocation?.coordinates?.longitude}`);
+      });
+    } else {
+      console.log('⚠️ Yakında kampanya yok!');
+      console.log('💡 İlk 3 kampanyanın koordinatları:');
+      banners.slice(0, 3).forEach(b => {
+        console.log(`  - ${b.restaurant?.name || 'İsimsiz'}:`);
+        console.log(`    bannerLocation.coordinates:`, b.bannerLocation?.coordinates);
+        console.log(`    restaurant.address.coordinates:`, b.restaurant?.address?.coordinates);
+      });
+    }
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     res.json({
       success: true,
