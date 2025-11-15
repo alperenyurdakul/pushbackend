@@ -177,5 +177,68 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// POST /push-token - FCM/APNs push token kayıt
+router.post('/push-token', async (req, res) => {
+  try {
+    const { userId, phone, pushToken, platform, type } = req.body;
+
+    if (!pushToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Push token gerekli!'
+      });
+    }
+
+    // Kullanıcıyı bul (userId veya phone ile)
+    let user;
+    if (userId) {
+      user = await User.findById(userId);
+    } else if (phone) {
+      user = await User.findOne({ phone });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'userId veya phone gerekli!'
+      });
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı!'
+      });
+    }
+
+    // Token'ı güncelle
+    user.pushToken = pushToken;
+    user.pushPlatform = platform || null;
+    user.pushTokenType = type || null;
+    user.updatedAt = new Date();
+
+    await user.save();
+
+    console.log(`✅ Push token kaydedildi: ${user.name} (${platform})`);
+    console.log(`   Token: ${pushToken.substring(0, 20)}...`);
+
+    res.json({
+      success: true,
+      message: 'Push token kaydedildi!',
+      data: {
+        userId: user._id,
+        pushToken: pushToken.substring(0, 20) + '...', // Güvenlik için kısaltılmış
+        platform,
+        type
+      }
+    });
+  } catch (error) {
+    console.error('❌ Push token kayıt hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Push token kaydedilirken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
 
 module.exports = router;

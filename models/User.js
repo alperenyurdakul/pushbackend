@@ -61,6 +61,22 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // FCM/APNs token (OneSignal yerine)
+  pushToken: {
+    type: String,
+    default: null,
+    index: true // Index ekle (sorgularda hızlı olması için)
+  },
+  pushPlatform: {
+    type: String,
+    enum: ['ios', 'android', null],
+    default: null
+  },
+  pushTokenType: {
+    type: String,
+    enum: ['fcm', 'apns', null],
+    default: null
+  },
   oneSignalUserId: {
     type: String,
     default: null
