@@ -407,7 +407,7 @@ async function sendOneSignalNotification(event) {
       large_icon: event.image ? `http://localhost:5000/uploads/${event.image}` : undefined,
       url: 'mobile://event/' + event._id
     };
-    
+
     // Player ID'ler varsa onları kullan
     if (playerIds.length > 0) {
       notification.include_player_ids = playerIds;

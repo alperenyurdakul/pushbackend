@@ -231,7 +231,7 @@ router.post('/nearby', async (req, res) => {
     // Aktif ve onaylı kampanyaları al
     const banners = await Banner.find({
       approvalStatus: 'approved',
-      isActive: true
+      'campaign.isActive': true
     }).populate('restaurant');
 
     // Yakındakileri filtrele
