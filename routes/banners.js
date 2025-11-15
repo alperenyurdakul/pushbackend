@@ -224,8 +224,9 @@ router.post('/nearby', async (req, res) => {
     console.log('🔍 Yakındaki kampanyalar aranıyor:', { 
       latitude, 
       longitude, 
-      radius: radius || 200 
+      radius: radius || 700 
     });
+    console.log('🆕 GÜNCEL KOD ÇALIŞIYOR - VERSION 2.0!');
 
     // Aktif ve onaylı kampanyaları al
     const banners = await Banner.find({
