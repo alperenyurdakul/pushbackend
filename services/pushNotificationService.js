@@ -70,7 +70,7 @@ const initializeAPNs = () => {
           keyId: process.env.APNS_KEY_ID,
           teamId: process.env.APNS_TEAM_ID
         },
-        production: process.env.NODE_ENV === 'production'
+        production: process.env.APNS_PRODUCTION === 'true' || process.env.NODE_ENV === 'production'
       });
 
       console.log('✅ APNs Provider başlatıldı (Key-based)');
@@ -80,7 +80,7 @@ const initializeAPNs = () => {
       apnsProvider = new apn.Provider({
         cert: process.env.APNS_CERT_PATH,
         key: process.env.APNS_KEY_PATH,
-        production: process.env.NODE_ENV === 'production'
+        production: process.env.APNS_PRODUCTION === 'true' || process.env.NODE_ENV === 'production'
       });
 
       console.log('✅ APNs Provider başlatıldı (Certificate-based)');

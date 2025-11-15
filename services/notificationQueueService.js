@@ -262,14 +262,14 @@ const getFilteredUsers = async (filters = {}) => {
       console.log('🔍 Filtreleme mantığı: Sadece şehir VEYA kategori (OR)');
     }
 
-    // Query'yi JSON'a çevir (regex'leri string olarak göster)
-    const queryForLog = JSON.parse(JSON.stringify(query, (key, val) => {
+    // Query'yi log için hazırla (regex'leri string olarak göster)
+    const queryForLog = JSON.stringify(query, (key, val) => {
       if (val instanceof RegExp) {
         return `RegExp(${val.source}, ${val.flags})`;
       }
       return val;
-    }));
-    console.log('🔍 Kullanıcı filtreleme query:', JSON.stringify(queryForLog, null, 2));
+    }, 2);
+    console.log('🔍 Kullanıcı filtreleme query:', queryForLog);
     console.log(`🔍 Şehir regex: ${cityConditions.length > 0 ? 'Oluşturuldu (' + filters.city + ')' : 'Yok'}`);
     console.log(`🔍 Kategori array: ${categoryConditions.length > 0 ? JSON.stringify(filters.categories) : 'Yok'}`);
     console.log(`📋 Filtreler: Şehir="${filters.city || 'Yok'}", Kategoriler=[${filters.categories?.join(', ') || 'Yok'}]`);
