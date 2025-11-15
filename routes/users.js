@@ -209,6 +209,21 @@ router.post('/push-token', async (req, res) => {
       });
     }
 
+    // Expo Push Token kontrolü (direkt FCM/APNs ile gönderilemez!)
+    const isExpoToken = req.body.isExpoToken || pushToken.startsWith('ExponentPushToken[');
+    
+    if (isExpoToken || pushToken.startsWith('ExponentPushToken[')) {
+      console.log(`⚠️ UYARI: Expo Push Token kaydedildi: ${user.name}`);
+      console.log(`   Token: ${pushToken.substring(0, 30)}...`);
+      console.log(`   ⚠️ Bu token direkt FCM/APNs ile gönderilemez!`);
+      console.log(`   ⚠️ Expo Push Notification service kullanılmalı!`);
+      console.log(`   💡 Kullanıcının uygulamadan yeniden login olması ve native token alması gerekiyor!`);
+    } else {
+      console.log(`✅ Native push token kaydedildi: ${user.name} (${platform})`);
+      console.log(`   Token: ${pushToken.substring(0, 20)}...`);
+      console.log(`   ✅ Bu token direkt FCM/APNs ile gönderilebilir!`);
+    }
+
     // Token'ı güncelle
     user.pushToken = pushToken;
     user.pushPlatform = platform || null;
@@ -216,9 +231,6 @@ router.post('/push-token', async (req, res) => {
     user.updatedAt = new Date();
 
     await user.save();
-
-    console.log(`✅ Push token kaydedildi: ${user.name} (${platform})`);
-    console.log(`   Token: ${pushToken.substring(0, 20)}...`);
 
     res.json({
       success: true,
