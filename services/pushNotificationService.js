@@ -1,5 +1,11 @@
 const admin = require('firebase-admin');
-const apn = require('apn');
+// APN paketini opsiyonel yap (kurulmamışsa devre dışı)
+let apn = null;
+try {
+  apn = require('apn');
+} catch (error) {
+  console.log('⚠️ APN paketi kurulu değil, iOS bildirimleri devre dışı');
+}
 
 // Firebase Admin SDK başlatma (config gerekli)
 let fcmInitialized = false;
@@ -46,6 +52,12 @@ let apnsProvider = null;
 const initializeAPNs = () => {
   if (apnsProvider) {
     return true;
+  }
+
+  // APN paketi yoksa devre dışı
+  if (!apn) {
+    console.log('⚠️ APN paketi kurulu değil, APNs devre dışı');
+    return false;
   }
 
   try {
