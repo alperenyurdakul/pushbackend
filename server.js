@@ -62,6 +62,7 @@ app.use('/api/event', require('./routes/eventNew'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/analytics', require('./routes/analytics'));
+app.use('/api/geo', require('./routes/geo'));
 
 console.log('📋 Kayıtlı route\'lar:');
 console.log('  - /api/auth');
@@ -73,6 +74,7 @@ console.log('  - /api/event (new)');
 console.log('  - /api/users');
 console.log('  - /api/admin');
 console.log('  - /api/analytics');
+console.log('  - /api/geo');
 
 
 
