@@ -141,7 +141,7 @@ router.post('/register', async (req, res) => {
     console.log('Method:', req.method);
     console.log('=======================');
     
-    const { phone, password, name, gender, email, userType, category, city, address, latitude, longitude } = req.body;
+    const { phone, password, name, gender, email, userType, category, city } = req.body;
 
     if (!phone || !password || !name) {
       console.log('❌ Eksik alanlar:', {
@@ -202,9 +202,6 @@ router.post('/register', async (req, res) => {
       userType: userType || 'customer',
       category: category || 'Kahve', // Kategori kayıt sırasında belirlenir
       city: city || null, // Şehir kayıt sırasında belirlenir
-      address: address || null, // Adres (opsiyonel)
-      latitude: latitude ? parseFloat(latitude) : null, // Enlem (opsiyonel)
-      longitude: longitude ? parseFloat(longitude) : null, // Boylam (opsiyonel)
       oneSignalExternalId: phone, // Telefon numarasını External ID olarak kaydet
       restaurant: {
         name: name, // Restaurant adı marka adıyla aynı
@@ -437,30 +434,6 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
       district: req.body.district || user.district,
       updatedAt: new Date()
     };
-
-    // Koordinatları güncelle (varsa)
-    // FormData'dan gelen değerler string olabilir, kontrol et
-    if (req.body.latitude !== undefined && req.body.latitude !== null && req.body.latitude !== '') {
-      const lat = parseFloat(req.body.latitude);
-      if (!isNaN(lat) && isFinite(lat)) {
-        updateData.latitude = lat;
-        console.log('📍 Latitude güncelleniyor:', lat);
-      }
-    }
-    if (req.body.longitude !== undefined && req.body.longitude !== null && req.body.longitude !== '') {
-      const lng = parseFloat(req.body.longitude);
-      if (!isNaN(lng) && isFinite(lng)) {
-        updateData.longitude = lng;
-        console.log('📍 Longitude güncelleniyor:', lng);
-      }
-    }
-    
-    console.log('📍 Koordinat güncelleme verisi:', {
-      latitude: updateData.latitude,
-      longitude: updateData.longitude,
-      rawLatitude: req.body.latitude,
-      rawLongitude: req.body.longitude
-    });
 
     // Logo güncellenmişse ekle
     if (req.file) {
@@ -1057,6 +1030,67 @@ router.get('/validate-token', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Token doğrulanırken hata oluştu!'
+    });
+  }
+});
+
+// Mevcut kullanıcı bilgilerini getir (koordinatlar dahil)
+router.get('/me', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token bulunamadı!'
+      });
+    }
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const user = await User.findById(decoded.userId).select('-password');
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Kullanıcı bulunamadı!'
+        });
+      }
+
+      res.json({
+        success: true,
+        user: {
+          _id: user._id,
+          id: user._id,
+          phone: user.phone,
+          name: user.name,
+          userType: user.userType,
+          isAdmin: user.isAdmin || false,
+          credits: user.credits || 0,
+          brandType: user.brandType,
+          description: user.description,
+          category: user.category,
+          address: user.address,
+          city: user.city,
+          district: user.district,
+          latitude: user.latitude,
+          longitude: user.longitude,
+          logo: user.logo,
+          email: user.email,
+          preferences: user.preferences || { city: null, categories: [] }
+        }
+      });
+    } catch (jwtError) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token geçersiz veya süresi dolmuş!'
+      });
+    }
+  } catch (error) {
+    console.error('Kullanıcı bilgileri getirme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Kullanıcı bilgileri getirilirken hata oluştu!'
     });
   }
 });
