@@ -141,7 +141,7 @@ router.post('/register', async (req, res) => {
     console.log('Method:', req.method);
     console.log('=======================');
     
-    const { phone, password, name, gender, email, userType, category, city } = req.body;
+    const { phone, password, name, gender, email, userType, category, city, address, latitude, longitude } = req.body;
 
     if (!phone || !password || !name) {
       console.log('❌ Eksik alanlar:', {
@@ -202,6 +202,9 @@ router.post('/register', async (req, res) => {
       userType: userType || 'customer',
       category: category || 'Kahve', // Kategori kayıt sırasında belirlenir
       city: city || null, // Şehir kayıt sırasında belirlenir
+      address: address || null, // Adres (opsiyonel)
+      latitude: latitude ? parseFloat(latitude) : null, // Enlem (opsiyonel)
+      longitude: longitude ? parseFloat(longitude) : null, // Boylam (opsiyonel)
       oneSignalExternalId: phone, // Telefon numarasını External ID olarak kaydet
       restaurant: {
         name: name, // Restaurant adı marka adıyla aynı
@@ -302,6 +305,8 @@ router.post('/login', async (req, res) => {
           address: user.address,
           city: user.city,
           district: user.district,
+          latitude: user.latitude,
+          longitude: user.longitude,
           logo: user.logo,
           email: user.email,
           preferences: user.preferences || { city: null, categories: [] }
@@ -435,6 +440,20 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
       updatedAt: new Date()
     };
 
+    // Koordinatları güncelle (varsa)
+    if (req.body.latitude !== undefined && req.body.latitude !== null && req.body.latitude !== '') {
+      const lat = parseFloat(req.body.latitude);
+      if (!isNaN(lat) && isFinite(lat)) {
+        updateData.latitude = lat;
+      }
+    }
+    if (req.body.longitude !== undefined && req.body.longitude !== null && req.body.longitude !== '') {
+      const lng = parseFloat(req.body.longitude);
+      if (!isNaN(lng) && isFinite(lng)) {
+        updateData.longitude = lng;
+      }
+    }
+
     // Logo güncellenmişse ekle
     if (req.file) {
       const key = req.file.key || req.file.location || req.file.path;
@@ -527,6 +546,8 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
         address: updatedUser.address,
         city: updatedUser.city,
         district: updatedUser.district,
+        latitude: updatedUser.latitude,
+        longitude: updatedUser.longitude,
         logo: updatedUser.logo
       }
     });

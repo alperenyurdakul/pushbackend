@@ -137,6 +137,15 @@ const userSchema = new mongoose.Schema({
     default: null, // Varsayılan district yok
     trim: true
   },
+  // Marka lokasyon koordinatları (banner'lar için kullanılacak)
+  latitude: {
+    type: Number,
+    default: null
+  },
+  longitude: {
+    type: Number,
+    default: null
+  },
   logo: {
     type: String,
     default: null
