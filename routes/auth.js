@@ -141,7 +141,7 @@ router.post('/register', async (req, res) => {
     console.log('Method:', req.method);
     console.log('=======================');
     
-    const { phone, password, name, gender, email, userType, category, city } = req.body;
+    const { phone, password, name, gender, email, userType, category, city, address, latitude, longitude } = req.body;
 
     if (!phone || !password || !name) {
       console.log('❌ Eksik alanlar:', {
@@ -202,6 +202,9 @@ router.post('/register', async (req, res) => {
       userType: userType || 'customer',
       category: category || 'Kahve', // Kategori kayıt sırasında belirlenir
       city: city || null, // Şehir kayıt sırasında belirlenir
+      address: address || null, // Adres (opsiyonel)
+      latitude: latitude ? parseFloat(latitude) : null, // Enlem (opsiyonel)
+      longitude: longitude ? parseFloat(longitude) : null, // Boylam (opsiyonel)
       oneSignalExternalId: phone, // Telefon numarasını External ID olarak kaydet
       restaurant: {
         name: name, // Restaurant adı marka adıyla aynı
@@ -434,6 +437,14 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
       district: req.body.district || user.district,
       updatedAt: new Date()
     };
+
+    // Koordinatları güncelle (varsa)
+    if (req.body.latitude !== undefined && req.body.latitude !== null && req.body.latitude !== '') {
+      updateData.latitude = parseFloat(req.body.latitude);
+    }
+    if (req.body.longitude !== undefined && req.body.longitude !== null && req.body.longitude !== '') {
+      updateData.longitude = parseFloat(req.body.longitude);
+    }
 
     // Logo güncellenmişse ekle
     if (req.file) {
