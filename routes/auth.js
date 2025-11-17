@@ -439,12 +439,28 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
     };
 
     // Koordinatları güncelle (varsa)
+    // FormData'dan gelen değerler string olabilir, kontrol et
     if (req.body.latitude !== undefined && req.body.latitude !== null && req.body.latitude !== '') {
-      updateData.latitude = parseFloat(req.body.latitude);
+      const lat = parseFloat(req.body.latitude);
+      if (!isNaN(lat) && isFinite(lat)) {
+        updateData.latitude = lat;
+        console.log('📍 Latitude güncelleniyor:', lat);
+      }
     }
     if (req.body.longitude !== undefined && req.body.longitude !== null && req.body.longitude !== '') {
-      updateData.longitude = parseFloat(req.body.longitude);
+      const lng = parseFloat(req.body.longitude);
+      if (!isNaN(lng) && isFinite(lng)) {
+        updateData.longitude = lng;
+        console.log('📍 Longitude güncelleniyor:', lng);
+      }
     }
+    
+    console.log('📍 Koordinat güncelleme verisi:', {
+      latitude: updateData.latitude,
+      longitude: updateData.longitude,
+      rawLatitude: req.body.latitude,
+      rawLongitude: req.body.longitude
+    });
 
     // Logo güncellenmişse ekle
     if (req.file) {
@@ -465,7 +481,9 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
       userId: updatedUser._id,
       name: updatedUser.name,
       category: updatedUser.category,
-      logo: updatedUser.logo
+      logo: updatedUser.logo,
+      latitude: updatedUser.latitude,
+      longitude: updatedUser.longitude
     });
 
     // Logo güncellendiyse, bu kullanıcının restaurant ve banner'larını güncelle
