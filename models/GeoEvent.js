@@ -7,6 +7,9 @@ const GeoEventSchema = new mongoose.Schema({
   latitude: { type: Number },
   longitude: { type: Number },
   ts: { type: Date, default: Date.now },
+  source: { type: String, default: 'manual', index: true },
+  distanceAtTrigger: { type: Number },
+  meta: { type: mongoose.Schema.Types.Mixed },
 }, { timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' } });
 
 GeoEventSchema.index({ userId: 1, regionId: 1, type: 1, createdAt: -1 });

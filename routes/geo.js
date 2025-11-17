@@ -8,7 +8,17 @@ const GeoEvent = require('../models/GeoEvent');
  */
 router.post('/region-event', async (req, res) => {
   try {
-    const { userId, type, regionId, latitude, longitude, ts } = req.body || {};
+    const {
+      userId,
+      type,
+      regionId,
+      latitude,
+      longitude,
+      ts,
+      source,
+      distanceAtTrigger,
+      meta,
+    } = req.body || {};
     if (!userId || !type || !regionId) {
       return res.status(400).json({ message: 'userId, type ve regionId gereklidir' });
     }
@@ -33,7 +43,17 @@ router.post('/region-event', async (req, res) => {
     if (todayCount >= DAILY_CAP) {
       console.log('⏱️ [GEO] Günlük cap aşıldı, event kabul edildi ama aksiyon yok', { userId, todayCount });
       // Yine de event’i kayıt altına alalım (audit)
-      await GeoEvent.create({ userId, type, regionId, latitude, longitude, ts: eventTime });
+      await GeoEvent.create({
+        userId,
+        type,
+        regionId,
+        latitude,
+        longitude,
+        ts: eventTime,
+        source,
+        distanceAtTrigger,
+        meta,
+      });
       return res.status(202).json({ ok: true, skipped: true, reason: 'daily_cap' });
     }
 
@@ -48,15 +68,41 @@ router.post('/region-event', async (req, res) => {
 
     if (lastRegionEvent) {
       console.log('⏳ [GEO] Cooldown aktif, event kabul edildi ama aksiyon yok', { userId, regionId });
-      await GeoEvent.create({ userId, type, regionId, latitude, longitude, ts: eventTime });
+      await GeoEvent.create({
+        userId,
+        type,
+        regionId,
+        latitude,
+        longitude,
+        ts: eventTime,
+        source,
+        distanceAtTrigger,
+        meta,
+      });
       return res.status(202).json({ ok: true, skipped: true, reason: 'cooldown' });
     }
 
     // 3) Event’i kaydet (audit)
-    await GeoEvent.create({ userId, type, regionId, latitude, longitude, ts: eventTime });
+    await GeoEvent.create({
+      userId,
+      type,
+      regionId,
+      latitude,
+      longitude,
+      ts: eventTime,
+      source,
+      distanceAtTrigger,
+      meta,
+    });
 
     console.log('📡 [GEO] Region event kabul edildi', {
-      userId, type, regionId, latitude, longitude, ts: eventTime.toISOString(),
+      userId,
+      type,
+      regionId,
+      latitude,
+      longitude,
+      ts: eventTime.toISOString(),
+      source,
     });
 
     // 4) İsteğe bağlı: server-side push tetikle (kural eklenebilir)
