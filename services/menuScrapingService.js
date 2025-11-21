@@ -290,6 +290,204 @@ const parseMenuItems = ($, url) => {
 };
 
 /**
+ * AI destekli menu scraping - Herhangi bir site formatını anlayabilir
+ */
+const scrapeWithAI = async (menuUrl) => {
+  try {
+    const puppeteerInstance = await getPuppeteer();
+    if (!puppeteerInstance) {
+      return null;
+    }
+
+    let browser = null;
+    try {
+      console.log('🤖 AI destekli scraping başlatılıyor...');
+      
+      browser = await puppeteerInstance.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--disable-gpu'
+        ]
+      });
+
+      const page = await browser.newPage();
+      await page.setViewport({ width: 1920, height: 1080 });
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+      
+      // Sayfayı yükle
+      await page.goto(menuUrl, { 
+        waitUntil: 'networkidle2',
+        timeout: 30000 
+      });
+
+      // JavaScript'in çalışmasını bekle
+      await page.waitForTimeout(5000);
+
+      // Sayfanın tüm içeriğini al
+      const pageData = await page.evaluate(() => {
+        // Tüm text içeriğini topla
+        const allText = document.body.innerText || document.body.textContent || '';
+        
+        // Tüm fiyat pattern'lerini bul
+        const pricePattern = /([A-Za-zığüşöçİĞÜŞÖÇ\s]+?)\s*(\d+[.,]\d+|\d+)\s*(₺|TL|tl)/gi;
+        const matches = [...allText.matchAll(pricePattern)];
+        
+        // DOM'dan tüm olası menü öğelerini topla
+        const possibleItems = [];
+        const selectors = [
+          '[data-product]', '[data-item]', '[data-name]',
+          '.product', '.menu-item', '.item', '.food-item',
+          'article', '[role="article"]', '.card', '.product-card'
+        ];
+        
+        selectors.forEach(selector => {
+          document.querySelectorAll(selector).forEach(el => {
+            const text = el.innerText || el.textContent || '';
+            if (text.length > 10 && text.length < 500) {
+              possibleItems.push({
+                html: el.outerHTML.substring(0, 500),
+                text: text.substring(0, 200),
+                classes: el.className,
+                id: el.id
+              });
+            }
+          });
+        });
+        
+        return {
+          url: window.location.href,
+          title: document.title,
+          allText: allText.substring(0, 10000), // İlk 10k karakter
+          priceMatches: matches.slice(0, 100).map(m => ({
+            name: m[1].trim(),
+            price: m[2],
+            currency: m[3]
+          })),
+          possibleItems: possibleItems.slice(0, 50),
+          bodyHTML: document.body.innerHTML.substring(0, 50000) // İlk 50k karakter
+        };
+      });
+
+      await browser.close();
+
+      // Önce akıllı manuel parsing yap
+      console.log('🔍 Akıllı parsing başlatılıyor...');
+      const smartItems = [];
+      
+      // 1. Price matches'den çıkar (en güvenilir)
+      pageData.priceMatches.forEach(match => {
+        const name = match.name.trim();
+        const price = parsePrice(match.price);
+        
+        // İsim filtresi: çok kısa veya çok uzun olmamalı, sadece sayı olmamalı
+        if (name.length > 2 && name.length < 100 && price && price > 0 && !/^\d+$/.test(name)) {
+          // Duplicate kontrolü
+          const exists = smartItems.some(item => 
+            item.name.toLowerCase() === name.toLowerCase() ||
+            (Math.abs(item.price - price) < 0.01 && item.name.toLowerCase().includes(name.toLowerCase().substring(0, 5)))
+          );
+          
+          if (!exists) {
+            smartItems.push({
+              name: name,
+              price: price,
+              category: null,
+              description: null
+            });
+          }
+        }
+      });
+      
+      // 2. Possible items'dan çıkar
+      if (smartItems.length < 10 && pageData.possibleItems.length > 0) {
+        pageData.possibleItems.forEach(item => {
+          const text = item.text;
+          const priceMatch = text.match(/(\d+[.,]\d+|\d+)\s*(₺|TL|tl)/i);
+          
+          if (priceMatch) {
+            const name = text.replace(priceMatch[0], '').trim().split('\n')[0]; // İlk satırı al
+            const price = parsePrice(priceMatch[0]);
+            
+            if (name.length > 2 && name.length < 100 && price && price > 0 && !/^\d+$/.test(name)) {
+              const exists = smartItems.some(item => 
+                item.name.toLowerCase() === name.toLowerCase()
+              );
+              
+              if (!exists) {
+                smartItems.push({
+                  name: name,
+                  price: price,
+                  category: null,
+                  description: null
+                });
+              }
+            }
+          }
+        });
+      }
+      
+      // 3. AI servisi varsa kullan (opsiyonel)
+      if (process.env.AI_SERVICE_URL && smartItems.length < 5) {
+        try {
+          console.log('🤖 AI servisine menü analizi gönderiliyor...');
+          
+          const aiResponse = await axios.post(
+            `${process.env.AI_SERVICE_URL}/extract-menu-items`,
+            {
+              url: menuUrl,
+              page_data: pageData,
+              task: 'Extract all menu items (food/drink names and prices) from this restaurant menu page. Return a JSON array of items with name, price, category, and description fields.'
+            },
+            {
+              timeout: 60000,
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+
+          if (aiResponse.data && aiResponse.data.success && aiResponse.data.items) {
+            const aiItems = aiResponse.data.items.map(item => ({
+              name: item.name || item.title || item.productName,
+              price: parseFloat(item.price) || parsePrice(item.price),
+              category: item.category || null,
+              description: item.description || null
+            })).filter(item => item.name && item.price > 0);
+
+            if (aiItems.length > smartItems.length) {
+              console.log(`✅ AI ile ${aiItems.length} ürün bulundu`);
+              return aiItems;
+            }
+          }
+        } catch (aiError) {
+          console.log('⚠️ AI servisi hatası:', aiError.message);
+        }
+      }
+
+      if (smartItems.length > 0) {
+        console.log(`✅ Akıllı parsing ile ${smartItems.length} ürün bulundu`);
+        return smartItems;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('❌ AI scraping hatası:', error.message);
+      if (browser) {
+        await browser.close();
+      }
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ AI scraping genel hatası:', error.message);
+    return null;
+  }
+};
+
+/**
  * Puppeteer ile JavaScript render edilmiş sayfayı scrape et
  */
 const scrapeWithPuppeteer = async (menuUrl) => {
@@ -454,12 +652,21 @@ const scrapeMenu = async (menuUrl) => {
       console.log('Normal HTML scraping başarısız, Puppeteer deneniyor...');
     }
     
-    // Eğer normal scraping başarısız olduysa Puppeteer kullan
+    // Eğer normal scraping başarısız olduysa önce Puppeteer, sonra AI dene
     if (items.length === 0) {
       console.log('🌐 JavaScript render edilmiş sayfa tespit edildi, Puppeteer kullanılıyor...');
       const puppeteerItems = await scrapeWithPuppeteer(menuUrl);
       if (puppeteerItems && puppeteerItems.length > 0) {
         items = puppeteerItems;
+      }
+    }
+    
+    // Hala bulunamadıysa AI destekli scraping dene
+    if (items.length === 0) {
+      console.log('🤖 AI destekli scraping deneniyor...');
+      const aiItems = await scrapeWithAI(menuUrl);
+      if (aiItems && aiItems.length > 0) {
+        items = aiItems;
       }
     }
     
