@@ -1,3 +1,57 @@
+// Node.js 18 için File API polyfill (undici hatası için)
+// Bu hata, Node.js 18'de File API'sinin global olmamasından kaynaklanıyor
+// Node.js 20+ kullanıyorsanız bu polyfill'e gerek yok
+if (typeof globalThis.File === 'undefined') {
+  try {
+    // undici'nin beklediği File API'sini oluştur
+    const { Readable } = require('stream');
+    
+    globalThis.File = class File {
+      constructor(bits, name, options = {}) {
+        this.name = name || '';
+        this.lastModified = options.lastModified || Date.now();
+        this.type = options.type || '';
+        this._bits = bits || [];
+        
+        // Size hesapla
+        if (Array.isArray(bits)) {
+          this.size = bits.reduce((acc, bit) => {
+            if (bit && typeof bit.size === 'number') return acc + bit.size;
+            if (Buffer.isBuffer(bit)) return acc + bit.length;
+            if (bit instanceof Uint8Array) return acc + bit.length;
+            if (typeof bit === 'string') return acc + Buffer.byteLength(bit);
+            return acc;
+          }, 0);
+        } else {
+          this.size = 0;
+        }
+      }
+      
+      stream() {
+        const stream = new Readable({ objectMode: false });
+        stream._read = () => {};
+        return stream;
+      }
+      
+      async arrayBuffer() {
+        return new ArrayBuffer(this.size);
+      }
+      
+      async text() {
+        return '';
+      }
+      
+      slice() {
+        return this;
+      }
+    };
+    
+    console.log('✅ File API polyfill eklendi (Node.js 18 uyumluluğu için)');
+  } catch (error) {
+    console.warn('⚠️ File API polyfill eklenirken hata:', error.message);
+  }
+}
+
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
