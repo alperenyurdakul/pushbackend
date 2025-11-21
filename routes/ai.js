@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const Banner = require('../models/Banner');
 const Restaurant = require('../models/Restaurant');
 const User = require('../models/User');
+const BannerClick = require('../models/BannerClick');
 const fs = require('fs');
 const path = require('path');
 const OneSignalService = require('../services/oneSignalService');
@@ -1002,8 +1003,18 @@ router.get('/banners/:id', async (req, res) => {
 // Banner istatistiklerini güncelle
 router.put('/banners/:id/stats', async (req, res) => {
   try {
-    const { views, clicks, conversions } = req.body;
-    const banner = await Banner.findByIdAndUpdate(
+    const { views, clicks, conversions, userId, deviceInfo, location } = req.body;
+    const banner = await Banner.findById(req.params.id).populate('restaurant');
+    
+    if (!banner) {
+      return res.status(404).json({
+        success: false,
+        message: 'Banner bulunamadı!'
+      });
+    }
+
+    // Banner stats'ı güncelle
+    const updatedBanner = await Banner.findByIdAndUpdate(
       req.params.id,
       { 
         $inc: { 
@@ -1015,18 +1026,41 @@ router.put('/banners/:id/stats', async (req, res) => {
       },
       { new: true }
     );
-    
-    if (!banner) {
-      return res.status(404).json({
-        success: false,
-        message: 'Banner bulunamadı!'
-      });
+
+    // BannerClick kayıtları oluştur
+    try {
+      if (views > 0) {
+        await BannerClick.create({
+          banner: banner._id,
+          user: userId || null,
+          restaurant: banner.restaurant?._id || null,
+          action: 'view',
+          deviceInfo: deviceInfo || {},
+          location: location || {},
+          timestamp: new Date()
+        });
+      }
+      
+      if (clicks > 0) {
+        await BannerClick.create({
+          banner: banner._id,
+          user: userId || null,
+          restaurant: banner.restaurant?._id || null,
+          action: 'click',
+          deviceInfo: deviceInfo || {},
+          location: location || {},
+          timestamp: new Date()
+        });
+      }
+    } catch (clickError) {
+      console.error('BannerClick kaydı oluşturulurken hata:', clickError);
+      // BannerClick hatası banner stats güncellemesini engellemesin
     }
     
     res.json({
       success: true,
       message: 'Banner istatistikleri güncellendi!',
-      data: banner
+      data: updatedBanner
     });
   } catch (error) {
     console.error('Banner istatistikleri güncellenirken hata:', error);

@@ -308,9 +308,29 @@ router.get('/banner-stats', authenticateJWT, async (req, res) => {
       statsByBanner[bannerId].totalActions++;
     });
 
+    // Eğer BannerClick kaydı yoksa, Banner.stats'tan da veri çek (fallback)
+    if (bannerClicks.length === 0) {
+      banners.forEach(banner => {
+        const bannerId = banner._id.toString();
+        if (!statsByBanner[bannerId]) {
+          statsByBanner[bannerId] = {
+            bannerId,
+            bannerTitle: banner.title || 'Bilinmeyen',
+            views: banner.stats?.views || 0,
+            clicks: banner.stats?.clicks || 0,
+            likes: 0,
+            shares: 0,
+            calls: 0,
+            directions: 0,
+            totalActions: (banner.stats?.views || 0) + (banner.stats?.clicks || 0)
+          };
+        }
+      });
+    }
+
     // Toplam istatistikler
-    const totalViews = statsByAction.view || 0;
-    const totalClicks = statsByAction.click || 0;
+    const totalViews = statsByAction.view || banners.reduce((sum, b) => sum + (b.stats?.views || 0), 0);
+    const totalClicks = statsByAction.click || banners.reduce((sum, b) => sum + (b.stats?.clicks || 0), 0);
     const totalLikes = statsByAction.like || 0;
     const totalShares = statsByAction.share || 0;
     const totalCalls = statsByAction.call || 0;
@@ -492,8 +512,15 @@ router.get('/overview', authenticateJWT, async (req, res) => {
     ]);
 
     // Banner tıklamaları istatistikleri
-    const totalViews = bannerClicks.filter(c => c.action === 'view').length;
-    const totalClicks = bannerClicks.filter(c => c.action === 'click').length;
+    let totalViews = bannerClicks.filter(c => c.action === 'view').length;
+    let totalClicks = bannerClicks.filter(c => c.action === 'click').length;
+    
+    // Eğer BannerClick kaydı yoksa, Banner.stats'tan veri çek (fallback)
+    if (bannerClicks.length === 0) {
+      totalViews = banners.reduce((sum, b) => sum + (b.stats?.views || 0), 0);
+      totalClicks = banners.reduce((sum, b) => sum + (b.stats?.clicks || 0), 0);
+    }
+    
     const uniqueClickUsers = [...new Set(bannerClicks.filter(c => c.action === 'click').map(c => c.user?.toString()).filter(Boolean))];
 
     // QR kod istatistikleri
