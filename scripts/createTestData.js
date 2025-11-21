@@ -34,8 +34,8 @@ const CATEGORIES = [
   'Spor',
   'Tatlı',
   'Mobilya',
-  'Market',
-  'El Sanatları'
+  'El Sanatları',
+  'Market'
 ];
 
 const BRAND_NAMES = [
@@ -47,8 +47,8 @@ const BRAND_NAMES = [
   'Fitness Center',
   'Tatlıcı',
   'Mobilya Mağazası',
-  'Süper Market',
-  'El Sanatları Atölyesi'
+  'El Sanatları Atölyesi',
+  'Süper Market'
 ];
 
 const BANNER_TITLES = [
@@ -60,8 +60,8 @@ const BANNER_TITLES = [
   'Spor Üyeliği %15 İndirim',
   'Tatlı Çeşitlerinde %35 İndirim',
   'Mobilya Setlerinde %30 İndirim',
-  'Market Alışverişinde %10 İndirim',
-  'El Sanatları Kursu %20 İndirim'
+  'El Sanatları Kursu %20 İndirim',
+  'Market Alışverişinde %10 İndirim'
 ];
 
 const BANNER_DESCRIPTIONS = [
@@ -73,8 +73,8 @@ const BANNER_DESCRIPTIONS = [
   'Spor üyeliğinde %15 indirim. Sağlıklı yaşam için!',
   'Tatlı çeşitlerimizde %35 indirim. Lezzet dolu anlar!',
   'Mobilya setlerinde %30 indirim. Evinizi güzelleştirin!',
-  'Market alışverişinde %10 indirim. Günlük ihtiyaçlarınız için!',
-  'El sanatları kurslarımızda %20 indirim. Yaratıcılığınızı keşfedin!'
+  'El sanatları kurslarımızda %20 indirim. Yaratıcılığınızı keşfedin!',
+  'Market alışverişinde %10 indirim. Günlük ihtiyaçlarınız için!'
 ];
 
 async function createTestData() {
@@ -251,6 +251,7 @@ async function createTestData() {
                    category === 'Spor' ? 15 : 
                    category === 'Tatlı' ? 35 : 
                    category === 'Mobilya' ? 30 : 
+                   category === 'El Sanatları' ? 20 : 
                    category === 'Market' ? 10 : 20
         });
 
