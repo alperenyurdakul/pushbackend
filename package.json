@@ -37,6 +37,7 @@
     "multer-s3": "^3.0.1",
     "node-cron": "^3.0.3",
     "onesignal-node": "^3.4.0",
+    "puppeteer": "^24.31.0",
     "twilio": "^5.10.2"
   },
   "devDependencies": {
