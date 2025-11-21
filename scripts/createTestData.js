@@ -39,8 +39,8 @@ const CATEGORIES = [
 ];
 
 const BRAND_NAMES = [
-  'Kahve Dünyası',
-  'Lezzet Durağı',
+  'Café Central',
+  'Lezzet Sofrası',
   'Gece Kulübü',
   'Moda Evi',
   'Güzellik Salonu',
@@ -48,7 +48,7 @@ const BRAND_NAMES = [
   'Tatlıcı',
   'Mobilya Mağazası',
   'El Sanatları Atölyesi',
-  'Süper Market'
+  'İstiklal Market'
 ];
 
 const BANNER_TITLES = [
@@ -75,6 +75,20 @@ const BANNER_DESCRIPTIONS = [
   'Mobilya setlerinde %30 indirim. Evinizi güzelleştirin!',
   'El sanatları kurslarımızda %20 indirim. Yaratıcılığınızı keşfedin!',
   'Market alışverişinde %10 indirim. Günlük ihtiyaçlarınız için!'
+];
+
+// Her kategori için uygun banner görselleri
+const BANNER_IMAGES = [
+  'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&h=600&fit=crop', // Kahve
+  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&h=600&fit=crop', // Yiyecek
+  'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800&h=600&fit=crop', // Bar/Pub
+  'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=600&fit=crop', // Giyim
+  'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&h=600&fit=crop', // Kuaför
+  'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&h=600&fit=crop', // Spor
+  'https://images.unsplash.com/photo-1551024506-0bccd828d307?w=800&h=600&fit=crop', // Tatlı
+  'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&h=600&fit=crop', // Mobilya
+  'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=800&h=600&fit=crop', // El Sanatları
+  'https://images.unsplash.com/photo-1556910096-6f5e72db6803?w=800&h=600&fit=crop'  // Market
 ];
 
 async function createTestData() {
@@ -201,7 +215,7 @@ async function createTestData() {
           title: bannerTitle,
           description: bannerDescription,
           aiGeneratedText: bannerDescription,
-          bannerImage: null, // Gerçek banner görseli eklenebilir
+          bannerImage: BANNER_IMAGES[i], // Kategoriye uygun görsel
           campaign: {
             startDate,
             endDate,
