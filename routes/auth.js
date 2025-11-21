@@ -437,6 +437,7 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
       address: req.body.address || user.address,
       city: req.body.city || user.city,
       district: req.body.district || user.district,
+      menuUrl: req.body.menuUrl !== undefined ? req.body.menuUrl : user.menuUrl,
       updatedAt: new Date()
     };
 

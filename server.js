@@ -63,6 +63,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/geo', require('./routes/geo'));
+app.use('/api/menus', require('./routes/menus'));
 
 console.log('📋 Kayıtlı route\'lar:');
 console.log('  - /api/auth');
@@ -75,6 +76,7 @@ console.log('  - /api/users');
 console.log('  - /api/admin');
 console.log('  - /api/analytics');
 console.log('  - /api/geo');
+console.log('  - /api/menus');
 
 
 
@@ -104,6 +106,15 @@ try {
   console.log('✅ Batch notification job başlatıldı (15 dakika)');
 } catch (error) {
   console.log('⚠️ Batch notification job başlatılamadı (Redis yoksa normal):', error.message);
+}
+
+// Akıllı Bildirim Job'ı başlat (hafta sonu bildirimleri)
+try {
+  const { startSmartNotificationJob } = require('./services/smartNotificationService');
+  startSmartNotificationJob();
+  console.log('✅ Akıllı bildirim job başlatıldı (Hafta sonu 10:00)');
+} catch (error) {
+  console.log('⚠️ Akıllı bildirim job başlatılamadı:', error.message);
 }
 
 // Push Notification Setup Test (Firebase/APNs)

@@ -150,6 +150,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  menuUrl: {
+    type: String,
+    default: null,
+    trim: true
+  },
   restaurant: {
     name: {
       type: String,
