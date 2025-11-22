@@ -150,11 +150,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  menuUrl: {
-    type: String,
-    default: null,
-    trim: true
-  },
   restaurant: {
     name: {
       type: String,
@@ -164,6 +159,42 @@ const userSchema = new mongoose.Schema({
       type: String,
       default: 'restaurant'
     }
+  },
+  // Açılış-Kapanış Saatleri
+  openingHours: {
+    monday: { open: String, close: String, isOpen: { type: Boolean, default: true } },
+    tuesday: { open: String, close: String, isOpen: { type: Boolean, default: true } },
+    wednesday: { open: String, close: String, isOpen: { type: Boolean, default: true } },
+    thursday: { open: String, close: String, isOpen: { type: Boolean, default: true } },
+    friday: { open: String, close: String, isOpen: { type: Boolean, default: true } },
+    saturday: { open: String, close: String, isOpen: { type: Boolean, default: true } },
+    sunday: { open: String, close: String, isOpen: { type: Boolean, default: true } }
+  },
+  // Restoran Özellikleri
+  features: {
+    hasChildrenPlayground: { type: Boolean, default: false },
+    hasNonSmokingArea: { type: Boolean, default: false },
+    hasParking: { type: Boolean, default: false },
+    hasWifi: { type: Boolean, default: false },
+    hasDelivery: { type: Boolean, default: false },
+    hasTakeaway: { type: Boolean, default: false },
+    hasOutdoorSeating: { type: Boolean, default: false },
+    hasWheelchairAccess: { type: Boolean, default: false },
+    acceptsReservations: { type: Boolean, default: false },
+    acceptsCreditCard: { type: Boolean, default: false },
+    hasLiveMusic: { type: Boolean, default: false },
+    hasPetFriendly: { type: Boolean, default: false },
+    hasValetParking: { type: Boolean, default: false },
+    hasPrivateRoom: { type: Boolean, default: false },
+    hasKidsMenu: { type: Boolean, default: false },
+    hasVegetarianOptions: { type: Boolean, default: false },
+    hasVeganOptions: { type: Boolean, default: false },
+    hasGlutenFreeOptions: { type: Boolean, default: false },
+    hasHalalOptions: { type: Boolean, default: false },
+    // Özel özellikler (serbest metin)
+    customFeatures: [{
+      type: String
+    }]
   },
   // İstatistikler
   statistics: {

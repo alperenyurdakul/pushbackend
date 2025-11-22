@@ -1,57 +1,3 @@
-// Node.js 18 için File API polyfill (undici hatası için)
-// Bu hata, Node.js 18'de File API'sinin global olmamasından kaynaklanıyor
-// Node.js 20+ kullanıyorsanız bu polyfill'e gerek yok
-if (typeof globalThis.File === 'undefined') {
-  try {
-    // undici'nin beklediği File API'sini oluştur
-    const { Readable } = require('stream');
-    
-    globalThis.File = class File {
-      constructor(bits, name, options = {}) {
-        this.name = name || '';
-        this.lastModified = options.lastModified || Date.now();
-        this.type = options.type || '';
-        this._bits = bits || [];
-        
-        // Size hesapla
-        if (Array.isArray(bits)) {
-          this.size = bits.reduce((acc, bit) => {
-            if (bit && typeof bit.size === 'number') return acc + bit.size;
-            if (Buffer.isBuffer(bit)) return acc + bit.length;
-            if (bit instanceof Uint8Array) return acc + bit.length;
-            if (typeof bit === 'string') return acc + Buffer.byteLength(bit);
-            return acc;
-          }, 0);
-        } else {
-          this.size = 0;
-        }
-      }
-      
-      stream() {
-        const stream = new Readable({ objectMode: false });
-        stream._read = () => {};
-        return stream;
-      }
-      
-      async arrayBuffer() {
-        return new ArrayBuffer(this.size);
-      }
-      
-      async text() {
-        return '';
-      }
-      
-      slice() {
-        return this;
-      }
-    };
-    
-    console.log('✅ File API polyfill eklendi (Node.js 18 uyumluluğu için)');
-  } catch (error) {
-    console.warn('⚠️ File API polyfill eklenirken hata:', error.message);
-  }
-}
-
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -117,7 +63,6 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/geo', require('./routes/geo'));
-app.use('/api/menus', require('./routes/menus'));
 
 console.log('📋 Kayıtlı route\'lar:');
 console.log('  - /api/auth');
@@ -130,7 +75,6 @@ console.log('  - /api/users');
 console.log('  - /api/admin');
 console.log('  - /api/analytics');
 console.log('  - /api/geo');
-console.log('  - /api/menus');
 
 
 
@@ -160,15 +104,6 @@ try {
   console.log('✅ Batch notification job başlatıldı (15 dakika)');
 } catch (error) {
   console.log('⚠️ Batch notification job başlatılamadı (Redis yoksa normal):', error.message);
-}
-
-// Akıllı Bildirim Job'ı başlat (hafta sonu bildirimleri)
-try {
-  const { startSmartNotificationJob } = require('./services/smartNotificationService');
-  startSmartNotificationJob();
-  console.log('✅ Akıllı bildirim job başlatıldı (Hafta sonu 10:00)');
-} catch (error) {
-  console.log('⚠️ Akıllı bildirim job başlatılamadı:', error.message);
 }
 
 // Push Notification Setup Test (Firebase/APNs)

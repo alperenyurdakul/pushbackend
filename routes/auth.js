@@ -437,7 +437,6 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
       address: req.body.address || user.address,
       city: req.body.city || user.city,
       district: req.body.district || user.district,
-      menuUrl: req.body.menuUrl !== undefined ? req.body.menuUrl : user.menuUrl,
       updatedAt: new Date()
     };
 
@@ -461,6 +460,30 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
       const base = process.env.CDN_BASE_URL || `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com`;
       const url = req.file.location || `${base}/${key}`;
       updateData.logo = url;
+    }
+
+    // Açılış-Kapanış Saatleri güncelle
+    if (req.body.openingHours) {
+      try {
+        const openingHours = typeof req.body.openingHours === 'string' 
+          ? JSON.parse(req.body.openingHours) 
+          : req.body.openingHours;
+        updateData.openingHours = openingHours;
+      } catch (e) {
+        console.log('Opening hours parse hatası:', e.message);
+      }
+    }
+
+    // Restoran Özellikleri güncelle
+    if (req.body.features) {
+      try {
+        const features = typeof req.body.features === 'string' 
+          ? JSON.parse(req.body.features) 
+          : req.body.features;
+        updateData.features = features;
+      } catch (e) {
+        console.log('Features parse hatası:', e.message);
+      }
     }
 
     // Kullanıcıyı güncelle
