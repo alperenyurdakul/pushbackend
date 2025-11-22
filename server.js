@@ -56,6 +56,7 @@ app.get('/', (req, res) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/restaurants', require('./routes/restaurants'));
 app.use('/api/banners', require('./routes/banners'));
+app.use('/api/brands', require('./routes/brands'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/event', require('./routes/eventNew'));
@@ -67,6 +68,7 @@ app.use('/api/geo', require('./routes/geo'));
 console.log('📋 Kayıtlı route\'lar:');
 console.log('  - /api/auth');
 console.log('  - /api/restaurants');
+console.log('  - /api/brands');
 console.log('  - /api/banners');
 console.log('  - /api/ai');
 console.log('  - /api/events');
