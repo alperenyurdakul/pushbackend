@@ -35,11 +35,37 @@ router.get('/', async (req, res) => {
       .sort({ name: 1 })
       .lean();
     
-    // Puan hesaplama (şimdilik mock - sonra review sisteminden gelecek)
-    const brandsWithRating = brands.map(brand => ({
-      ...brand,
-      rating: 4.5, // Mock rating - sonra RestaurantReview'dan gelecek
-      reviewCount: 0 // Mock review count
+    // Banner'ları getir ve markalara ekle
+    const Banner = require('../models/Banner');
+    const RestaurantReview = require('../models/RestaurantReview');
+    
+    const brandsWithRating = await Promise.all(brands.map(async (brand) => {
+      // Yorumları getir ve puan hesapla
+      const reviews = await RestaurantReview.find({
+        restaurant: brand._id
+      }).lean();
+      
+      const ratings = reviews.map(r => r.rating).filter(Boolean);
+      const averageRating = ratings.length > 0
+        ? ratings.reduce((a, b) => a + b, 0) / ratings.length
+        : 0;
+      
+      // Banner'ları getir
+      const banners = await Banner.find({
+        restaurant: brand._id,
+        status: 'active',
+        approvalStatus: 'approved'
+      })
+        .select('title description bannerImage category campaign createdAt')
+        .sort({ createdAt: -1 })
+        .lean();
+      
+      return {
+        ...brand,
+        rating: averageRating,
+        reviewCount: reviews.length,
+        banners: banners || []
+      };
     }));
     
     res.json({

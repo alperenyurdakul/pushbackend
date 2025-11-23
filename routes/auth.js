@@ -6,6 +6,8 @@ const path = require('path');
 const fs = require('fs');
 const uploadS3 = require('../middleware/uploadS3');
 const User = require('../models/User');
+const Restaurant = require('../models/Restaurant');
+const Banner = require('../models/Banner');
 const SMSService = require('../services/smsService');
 
 // Multer yapılandırması - logo yükleme için
@@ -141,7 +143,7 @@ router.post('/register', async (req, res) => {
     console.log('Method:', req.method);
     console.log('=======================');
     
-    const { phone, password, name, gender, email, userType, category, city, address, latitude, longitude } = req.body;
+    const { phone, password, name, gender, email, userType, category, city, district, address, latitude, longitude, description, brandType } = req.body;
 
     if (!phone || !password || !name) {
       console.log('❌ Eksik alanlar:', {
@@ -202,9 +204,12 @@ router.post('/register', async (req, res) => {
       userType: userType || 'customer',
       category: category || 'Kahve', // Kategori kayıt sırasında belirlenir
       city: city || null, // Şehir kayıt sırasında belirlenir
+      district: district || null, // İlçe (opsiyonel)
       address: address || null, // Adres (opsiyonel)
       latitude: latitude ? parseFloat(latitude) : null, // Enlem (opsiyonel)
       longitude: longitude ? parseFloat(longitude) : null, // Boylam (opsiyonel)
+      description: description || null, // Marka açıklaması (opsiyonel)
+      brandType: brandType || null, // Marka tipi (opsiyonel)
       oneSignalExternalId: phone, // Telefon numarasını External ID olarak kaydet
       restaurant: {
         name: name, // Restaurant adı marka adıyla aynı
@@ -213,6 +218,116 @@ router.post('/register', async (req, res) => {
     });
 
     await user.save();
+
+    // Marka kayıtlarında Restaurant ve sabit Banner oluştur
+    if (userType === 'brand' || userType === 'eventBrand') {
+      try {
+        // Restaurant oluştur veya bul
+        let restaurant = await Restaurant.findOne({ name: user.name });
+        
+        if (!restaurant) {
+          restaurant = new Restaurant({
+            name: user.name,
+            type: 'restaurant',
+            address: {
+              street: user.address || null,
+              city: user.city || 'İstanbul',
+              district: user.district || null,
+              coordinates: user.latitude && user.longitude ? {
+                lat: user.latitude,
+                lng: user.longitude
+              } : null
+            },
+            contact: {
+              phone: user.phone,
+              email: user.email || null
+            },
+            workingHours: {
+              monday: { open: '09:00', close: '22:00' },
+              tuesday: { open: '09:00', close: '22:00' },
+              wednesday: { open: '09:00', close: '22:00' },
+              thursday: { open: '09:00', close: '22:00' },
+              friday: { open: '09:00', close: '23:00' },
+              saturday: { open: '10:00', close: '23:00' },
+              sunday: { open: '10:00', close: '22:00' }
+            },
+            logo: user.logo || null,
+            description: `${user.name} hoş geldiniz kampanyası`,
+            isActive: true
+          });
+          
+          await restaurant.save();
+          console.log('✅ Restaurant oluşturuldu:', restaurant._id);
+        }
+
+        // Sabit Banner oluştur
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + 30); // 30 gün sonra bitiş
+
+        const defaultBanner = new Banner({
+          restaurant: restaurant._id,
+          title: `${user.name} Hoş Geldiniz Kampanyası`,
+          description: `${user.name} olarak aramıza katıldığınız için teşekkürler! Özel hoş geldiniz kampanyamızdan yararlanın.`,
+          aiGeneratedText: `${user.name} markası için hoş geldiniz kampanyası. Yeni müşterilerimize özel indirimler ve fırsatlar.`,
+          bannerImage: null, // Görsel sonradan eklenebilir
+          campaign: {
+            startDate: startDate,
+            endDate: endDate,
+            startTime: '09:00',
+            endTime: '23:00',
+            daysOfWeek: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+            isActive: true
+          },
+          category: user.category || 'Kahve',
+          bannerLocation: {
+            city: user.city || 'İstanbul',
+            district: user.district || null,
+            address: user.address || null,
+            coordinates: user.latitude && user.longitude ? {
+              latitude: user.latitude,
+              longitude: user.longitude
+            } : null
+          },
+          brandProfile: {
+            logo: user.logo || null,
+            description: user.description || `${user.name} markası`,
+            category: user.category || 'Kahve',
+            brandType: user.brandType || 'Restoran',
+            email: user.email || null,
+            address: user.address || null,
+            city: user.city || 'İstanbul',
+            district: user.district || null
+          },
+          status: 'active',
+          approvalStatus: 'pending', // Admin onayı bekliyor
+          offerType: 'percentage',
+          offerDetails: {
+            discountPercentage: 10 // Varsayılan %10 indirim
+          },
+          codeQuota: {
+            total: 100,
+            used: 0,
+            remaining: 100
+          },
+          codeSettings: {
+            codeType: 'random',
+            fixedCode: null
+          },
+          stats: {
+            views: 0,
+            clicks: 0,
+            conversions: 0
+          }
+        });
+
+        await defaultBanner.save();
+        console.log('✅ Hoş geldiniz banner\'ı oluşturuldu:', defaultBanner._id);
+      } catch (bannerError) {
+        console.error('⚠️ Banner oluşturulurken hata (kullanıcı kaydı devam ediyor):', bannerError);
+        // Banner oluşturma hatası kullanıcı kaydını engellemez
+      }
+    }
 
     // JWT token oluştur
     const token = jwt.sign(
