@@ -154,6 +154,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  menuImages: [{
+    type: String, // Menü görseli URL'leri (array)
+    default: null
+  }],
   menuLink: {
     type: String,
     default: null

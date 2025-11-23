@@ -511,7 +511,8 @@ router.post('/update-push-token', async (req, res) => {
 // Profil güncelleme endpoint'i (S3'e yükler)
 router.put('/update-profile', uploadS3.fields([
   { name: 'logo', maxCount: 1 },
-  { name: 'menuImage', maxCount: 1 }
+  { name: 'menuImage', maxCount: 1 },
+  { name: 'menuImages', maxCount: 20 }
 ]), async (req, res) => {
   try {
     console.log('=== PROFİL GÜNCELLEME İSTEĞİ ===');
@@ -584,14 +585,37 @@ router.put('/update-profile', uploadS3.fields([
       console.log('✅ Logo S3e yüklendi:', url);
     }
 
-    // Menü görseli yükleme
+    // Menü görseli yükleme (tek görsel - eski uyumluluk için)
     if (req.files && req.files.menuImage && req.files.menuImage[0]) {
       const menuFile = req.files.menuImage[0];
       const key = menuFile.key || menuFile.location || menuFile.path;
       const base = process.env.CDN_BASE_URL || `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com`;
       const url = menuFile.location || `${base}/${key}`;
       updateData.menuImage = url;
+      // Tek görsel varsa array'e de ekle
+      if (!updateData.menuImages) {
+        updateData.menuImages = [url];
+      } else if (!updateData.menuImages.includes(url)) {
+        updateData.menuImages.push(url);
+      }
       console.log('✅ Menü görseli S3e yüklendi:', url);
+    }
+
+    // Menü görselleri yükleme (çoklu - yeni özellik)
+    if (req.files && req.files.menuImages && req.files.menuImages.length > 0) {
+      const menuImageUrls = [];
+      for (const menuFile of req.files.menuImages) {
+        const key = menuFile.key || menuFile.location || menuFile.path;
+        const base = process.env.CDN_BASE_URL || `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com`;
+        const url = menuFile.location || `${base}/${key}`;
+        menuImageUrls.push(url);
+        console.log('✅ Menü görseli S3e yüklendi:', url);
+      }
+      updateData.menuImages = menuImageUrls;
+      // İlk görseli menuImage olarak da kaydet (eski uyumluluk için)
+      if (menuImageUrls.length > 0) {
+        updateData.menuImage = menuImageUrls[0];
+      }
     }
 
     // Açılış-Kapanış Saatleri güncelle
@@ -695,9 +719,15 @@ router.put('/update-profile', uploadS3.fields([
           // Bu restoran'a ait tüm banner'ları güncelle
           const bannerUpdateData = {};
           if (updateData.logo) bannerUpdateData['brandProfile.logo'] = updateData.logo;
-          if (updateData.menuImage) {
-            // Menü görseli tüm banner'lara eklenir
+          if (updateData.menuImages && updateData.menuImages.length > 0) {
+            // Menü görselleri tüm banner'lara eklenir
+            bannerUpdateData['menu.images'] = updateData.menuImages;
+            bannerUpdateData['menu.image'] = updateData.menuImages[0]; // İlk görseli eski uyumluluk için
+            bannerUpdateData['menu.link'] = null; // Görsel varsa link'i temizle
+          } else if (updateData.menuImage) {
+            // Eski uyumluluk için tek görsel desteği
             bannerUpdateData['menu.image'] = updateData.menuImage;
+            bannerUpdateData['menu.images'] = [updateData.menuImage];
             bannerUpdateData['menu.link'] = null; // Görsel varsa link'i temizle
           }
           if (updateData.menuLink) {
