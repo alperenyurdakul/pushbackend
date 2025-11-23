@@ -6,6 +6,7 @@ const Restaurant = require('../models/Restaurant');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const { findNearbyBanners } = require('../services/locationService');
+const { uploadBase64ToS3 } = require('../middleware/uploadS3');
 
 // GET all banners
 router.get('/', async (req, res) => {
@@ -192,7 +193,7 @@ router.post('/create-simple', async (req, res) => {
     }
 
     // Request body'den banner bilgilerini al
-    const { title, description, startDate, endDate, discountPercentage, codeQuota } = req.body;
+    const { title, description, startDate, endDate, discountPercentage, codeQuota, bannerImage } = req.body;
 
     // Varsayılan değerler
     const bannerStartDate = startDate ? new Date(startDate) : new Date();
@@ -202,13 +203,32 @@ router.post('/create-simple', async (req, res) => {
       return date;
     })();
 
+    // Banner görseli - Base64 ise S3'e yükle
+    let finalBannerImage = null;
+    try {
+      if (bannerImage && bannerImage.startsWith('data:image/')) {
+        // Base64 görseli S3'e yükle
+        console.log('📤 Banner görseli S3e yükleniyor...');
+        finalBannerImage = await uploadBase64ToS3(bannerImage, 'banners');
+        console.log('✅ Banner görseli S3e yüklendi:', finalBannerImage);
+      } else if (bannerImage && (bannerImage.startsWith('http://') || bannerImage.startsWith('https://'))) {
+        // Zaten tam URL ise direkt kullan
+        finalBannerImage = bannerImage;
+        console.log('✅ Banner görseli zaten URL:', finalBannerImage);
+      }
+    } catch (imageError) {
+      console.error('❌ Banner görseli yüklenirken hata:', imageError);
+      // Görsel yükleme hatası banner oluşturmayı engellemesin
+      finalBannerImage = null;
+    }
+
     // Sabit Banner oluştur
     const simpleBanner = new Banner({
       restaurant: restaurant._id,
       title: title || `${user.name} Kampanyası`,
       description: description || `${user.name} olarak özel kampanyamızdan yararlanın!`,
       aiGeneratedText: description || `${user.name} markası için özel kampanya. Müşterilerimize özel indirimler ve fırsatlar.`,
-      bannerImage: null, // Görsel sonradan eklenebilir
+      bannerImage: finalBannerImage,
       campaign: {
         startDate: bannerStartDate,
         endDate: bannerEndDate,
