@@ -150,6 +150,14 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  menuImage: {
+    type: String,
+    default: null
+  },
+  menuLink: {
+    type: String,
+    default: null
+  },
   restaurant: {
     name: {
       type: String,

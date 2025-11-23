@@ -24,7 +24,9 @@ const uploadS3 = multer({
     key: (req, file, cb) => {
       const original = file.originalname || 'file';
       const ext = original.includes('.') ? original.split('.').pop() : 'png';
-      const key = `uploads/logos/${Date.now()}-${Math.random().toString().slice(2)}.${ext}`;
+      // Field name'e göre farklı klasörler
+      const folder = file.fieldname === 'menuImage' ? 'menus' : 'logos';
+      const key = `uploads/${folder}/${Date.now()}-${Math.random().toString().slice(2)}.${ext}`;
       cb(null, key);
     },
   }),

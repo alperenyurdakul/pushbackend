@@ -193,7 +193,7 @@ router.post('/create-simple', async (req, res) => {
     }
 
     // Request body'den banner bilgilerini al
-    const { title, description, startDate, endDate, discountPercentage, codeQuota, bannerImage } = req.body;
+    const { title, description, startDate, endDate, discountPercentage, codeQuota, bannerImage, menuImage } = req.body;
 
     // Varsayılan değerler
     const bannerStartDate = startDate ? new Date(startDate) : new Date();
@@ -222,6 +222,25 @@ router.post('/create-simple', async (req, res) => {
       finalBannerImage = null;
     }
 
+    // Menü görseli - Base64 ise S3'e yükle
+    let finalMenuImage = null;
+    try {
+      if (menuImage && menuImage.startsWith('data:image/')) {
+        // Base64 görseli S3'e yükle
+        console.log('📤 Menü görseli S3e yükleniyor...');
+        finalMenuImage = await uploadBase64ToS3(menuImage, 'menus');
+        console.log('✅ Menü görseli S3e yüklendi:', finalMenuImage);
+      } else if (menuImage && (menuImage.startsWith('http://') || menuImage.startsWith('https://'))) {
+        // Zaten tam URL ise direkt kullan
+        finalMenuImage = menuImage;
+        console.log('✅ Menü görseli zaten URL:', finalMenuImage);
+      }
+    } catch (imageError) {
+      console.error('❌ Menü görseli yüklenirken hata:', imageError);
+      // Görsel yükleme hatası banner oluşturmayı engellemesin
+      finalMenuImage = null;
+    }
+
     // Sabit Banner oluştur
     const simpleBanner = new Banner({
       restaurant: restaurant._id,
@@ -229,6 +248,10 @@ router.post('/create-simple', async (req, res) => {
       description: description || `${user.name} olarak özel kampanyamızdan yararlanın!`,
       aiGeneratedText: description || `${user.name} markası için özel kampanya. Müşterilerimize özel indirimler ve fırsatlar.`,
       bannerImage: finalBannerImage,
+      menu: {
+        link: null,
+        image: finalMenuImage
+      },
       campaign: {
         startDate: bannerStartDate,
         endDate: bannerEndDate,
@@ -300,21 +323,100 @@ router.post('/create-simple', async (req, res) => {
 // PUT update banner
 router.put('/:id', async (req, res) => {
   try {
-    const banner = await Banner.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
+    // JWT token kontrolü
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Giriş yapmanız gerekiyor!'
+      });
+    }
+
+    let user = null;
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      user = await User.findById(decoded.userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Kullanıcı bulunamadı!'
+        });
+      }
+    } catch (jwtError) {
+      return res.status(401).json({
+        success: false,
+        message: 'Geçersiz token!'
+      });
+    }
+
+    // Banner'ı bul
+    const banner = await Banner.findById(req.params.id).populate('restaurant');
     if (!banner) {
       return res.status(404).json({
         success: false,
         message: 'Banner bulunamadı!'
       });
     }
+
+    // Kullanıcının bu banner'a sahip olup olmadığını kontrol et
+    if (banner.restaurant && banner.restaurant.name !== user.name) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bu banner\'ı düzenleme yetkiniz yok!'
+      });
+    }
+
+    // Görsel yükleme (eğer base64 ise S3'e yükle)
+    let finalBannerImage = req.body.bannerImage;
+    if (req.body.bannerImage && req.body.bannerImage.startsWith('data:image/')) {
+      try {
+        console.log('📤 Banner görseli S3e yükleniyor...');
+        finalBannerImage = await uploadBase64ToS3(req.body.bannerImage, 'banners');
+        console.log('✅ Banner görseli S3e yüklendi:', finalBannerImage);
+      } catch (imageError) {
+        console.error('❌ Banner görseli yüklenirken hata:', imageError);
+        finalBannerImage = banner.bannerImage; // Hata durumunda eski görseli koru
+      }
+    }
+
+    // Menü görseli yükleme (eğer base64 ise S3'e yükle)
+    let finalMenuImage = req.body.menu?.image;
+    if (req.body.menu?.image && req.body.menu.image.startsWith('data:image/')) {
+      try {
+        console.log('📤 Menü görseli S3e yükleniyor...');
+        finalMenuImage = await uploadBase64ToS3(req.body.menu.image, 'menus');
+        console.log('✅ Menü görseli S3e yüklendi:', finalMenuImage);
+      } catch (imageError) {
+        console.error('❌ Menü görseli yüklenirken hata:', imageError);
+        finalMenuImage = banner.menu?.image; // Hata durumunda eski görseli koru
+      }
+    }
+
+    // Güncelleme verilerini hazırla
+    const updateData = {
+      ...req.body,
+      bannerImage: finalBannerImage || banner.bannerImage,
+      menu: {
+        ...req.body.menu,
+        image: finalMenuImage || banner.menu?.image
+      },
+      approvalStatus: 'pending', // Düzenleme sonrası admin onayına gönder
+      updatedAt: new Date()
+    };
+
+    // Banner'ı güncelle
+    const updatedBanner = await Banner.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('restaurant');
+
+    console.log('✅ Banner güncellendi ve admin onayına gönderildi:', updatedBanner._id);
+
     res.json({
       success: true,
-      message: 'Banner başarıyla güncellendi!',
-      data: banner
+      message: 'Banner başarıyla güncellendi! Admin onayı bekleniyor.',
+      data: updatedBanner
     });
   } catch (error) {
     console.error('Banner güncellenirken hata:', error);

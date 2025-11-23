@@ -509,7 +509,10 @@ router.post('/update-push-token', async (req, res) => {
 });
 
 // Profil güncelleme endpoint'i (S3'e yükler)
-router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
+router.put('/update-profile', uploadS3.fields([
+  { name: 'logo', maxCount: 1 },
+  { name: 'menuImage', maxCount: 1 }
+]), async (req, res) => {
   try {
     console.log('=== PROFİL GÜNCELLEME İSTEĞİ ===');
     console.log('Headers:', req.headers);
@@ -552,6 +555,7 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
       address: req.body.address || user.address,
       city: req.body.city || user.city,
       district: req.body.district || user.district,
+      menuLink: req.body.menuLink !== undefined ? req.body.menuLink : user.menuLink,
       updatedAt: new Date()
     };
 
@@ -570,11 +574,24 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
     }
 
     // Logo güncellenmişse ekle
-    if (req.file) {
-      const key = req.file.key || req.file.location || req.file.path;
+    // Logo yükleme
+    if (req.files && req.files.logo && req.files.logo[0]) {
+      const logoFile = req.files.logo[0];
+      const key = logoFile.key || logoFile.location || logoFile.path;
       const base = process.env.CDN_BASE_URL || `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com`;
-      const url = req.file.location || `${base}/${key}`;
+      const url = logoFile.location || `${base}/${key}`;
       updateData.logo = url;
+      console.log('✅ Logo S3e yüklendi:', url);
+    }
+
+    // Menü görseli yükleme
+    if (req.files && req.files.menuImage && req.files.menuImage[0]) {
+      const menuFile = req.files.menuImage[0];
+      const key = menuFile.key || menuFile.location || menuFile.path;
+      const base = process.env.CDN_BASE_URL || `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com`;
+      const url = menuFile.location || `${base}/${key}`;
+      updateData.menuImage = url;
+      console.log('✅ Menü görseli S3e yüklendi:', url);
     }
 
     // Açılış-Kapanış Saatleri güncelle
@@ -647,8 +664,8 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
       hasFeatures: !!updatedUser.features
     });
 
-    // Logo güncellendiyse, bu kullanıcının restaurant ve banner'larını güncelle
-    if (updateData.logo || updateData.description || updateData.city || updateData.district) {
+    // Logo veya menü güncellendiyse, bu kullanıcının restaurant ve banner'larını güncelle
+    if (updateData.logo || updateData.menuImage || updateData.menuLink || updateData.description || updateData.city || updateData.district) {
       try {
         const Banner = require('../models/Banner');
         const Restaurant = require('../models/Restaurant');
@@ -678,6 +695,16 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
           // Bu restoran'a ait tüm banner'ları güncelle
           const bannerUpdateData = {};
           if (updateData.logo) bannerUpdateData['brandProfile.logo'] = updateData.logo;
+          if (updateData.menuImage) {
+            // Menü görseli tüm banner'lara eklenir
+            bannerUpdateData['menu.image'] = updateData.menuImage;
+            bannerUpdateData['menu.link'] = null; // Görsel varsa link'i temizle
+          }
+          if (updateData.menuLink) {
+            // Menü linki tüm banner'lara eklenir
+            bannerUpdateData['menu.link'] = updateData.menuLink;
+            bannerUpdateData['menu.image'] = null; // Link varsa görseli temizle
+          }
           if (updateData.description) bannerUpdateData['brandProfile.description'] = updateData.description;
           if (updateData.city) bannerUpdateData['brandProfile.city'] = updateData.city;
           if (updateData.district) bannerUpdateData['brandProfile.district'] = updateData.district;
@@ -718,6 +745,8 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
         latitude: updatedUser.latitude,
         longitude: updatedUser.longitude,
         logo: updatedUser.logo,
+        menuImage: updatedUser.menuImage,
+        menuLink: updatedUser.menuLink,
         openingHours: updatedUser.openingHours,
         features: updatedUser.features
       }
