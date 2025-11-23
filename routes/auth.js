@@ -555,7 +555,7 @@ router.put('/update-profile', uploadS3.fields([
       address: req.body.address || user.address,
       city: req.body.city || user.city,
       district: req.body.district || user.district,
-      menuLink: req.body.menuLink !== undefined ? req.body.menuLink : user.menuLink,
+      menuLink: req.body.menuLink !== undefined ? (req.body.menuLink === '' ? null : req.body.menuLink) : user.menuLink,
       updatedAt: new Date()
     };
 
