@@ -699,7 +699,10 @@ router.put('/update-profile', uploadS3.fields([
       latitude: updatedUser.latitude,
       longitude: updatedUser.longitude,
       hasOpeningHours: !!updatedUser.openingHours,
-      hasFeatures: !!updatedUser.features
+      hasFeatures: !!updatedUser.features,
+      menuImage: updatedUser.menuImage,
+      menuImages: updatedUser.menuImages,
+      menuImagesLength: updatedUser.menuImages?.length || 0
     });
 
     // Logo veya menü güncellendiyse, bu kullanıcının restaurant ve banner'larını güncelle
