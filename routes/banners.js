@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const Banner = require('../models/Banner');
 const BannerClick = require('../models/BannerClick');
+const Restaurant = require('../models/Restaurant');
+const User = require('../models/User');
+const jwt = require('jsonwebtoken');
 const { findNearbyBanners } = require('../services/locationService');
 
 // GET all banners
@@ -93,7 +96,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST new banner
+// POST new banner (basit)
 router.post('/', async (req, res) => {
   try {
     const banner = new Banner(req.body);
@@ -105,6 +108,167 @@ router.post('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Banner oluşturulurken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Banner oluşturulurken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
+// POST /create-simple - Marka profilinden sabit banner oluştur
+router.post('/create-simple', async (req, res) => {
+  try {
+    // JWT token kontrolü
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Giriş yapmanız gerekiyor!'
+      });
+    }
+
+    let user = null;
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      user = await User.findById(decoded.userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Kullanıcı bulunamadı!'
+        });
+      }
+    } catch (jwtError) {
+      return res.status(401).json({
+        success: false,
+        message: 'Geçersiz token!'
+      });
+    }
+
+    // Sadece marka kullanıcıları banner oluşturabilir
+    if (user.userType !== 'brand' && user.userType !== 'eventBrand') {
+      return res.status(403).json({
+        success: false,
+        message: 'Sadece marka kullanıcıları banner oluşturabilir!'
+      });
+    }
+
+    // Restaurant oluştur veya bul
+    let restaurant = await Restaurant.findOne({ name: user.name });
+    
+    if (!restaurant) {
+      restaurant = new Restaurant({
+        name: user.name,
+        type: 'restaurant',
+        address: {
+          street: user.address || null,
+          city: user.city || 'İstanbul',
+          district: user.district || null,
+          coordinates: user.latitude && user.longitude ? {
+            lat: user.latitude,
+            lng: user.longitude
+          } : null
+        },
+        contact: {
+          phone: user.phone,
+          email: user.email || null
+        },
+        workingHours: {
+          monday: { open: '09:00', close: '22:00' },
+          tuesday: { open: '09:00', close: '22:00' },
+          wednesday: { open: '09:00', close: '22:00' },
+          thursday: { open: '09:00', close: '22:00' },
+          friday: { open: '09:00', close: '23:00' },
+          saturday: { open: '10:00', close: '23:00' },
+          sunday: { open: '10:00', close: '22:00' }
+        },
+        logo: user.logo || null,
+        description: user.description || `${user.name} restoranı`,
+        isActive: true
+      });
+      
+      await restaurant.save();
+      console.log('✅ Restaurant oluşturuldu:', restaurant._id);
+    }
+
+    // Request body'den banner bilgilerini al
+    const { title, description, startDate, endDate, discountPercentage, codeQuota } = req.body;
+
+    // Varsayılan değerler
+    const bannerStartDate = startDate ? new Date(startDate) : new Date();
+    const bannerEndDate = endDate ? new Date(endDate) : (() => {
+      const date = new Date();
+      date.setDate(date.getDate() + 30);
+      return date;
+    })();
+
+    // Sabit Banner oluştur
+    const simpleBanner = new Banner({
+      restaurant: restaurant._id,
+      title: title || `${user.name} Kampanyası`,
+      description: description || `${user.name} olarak özel kampanyamızdan yararlanın!`,
+      aiGeneratedText: description || `${user.name} markası için özel kampanya. Müşterilerimize özel indirimler ve fırsatlar.`,
+      bannerImage: null, // Görsel sonradan eklenebilir
+      campaign: {
+        startDate: bannerStartDate,
+        endDate: bannerEndDate,
+        startTime: '09:00',
+        endTime: '23:00',
+        daysOfWeek: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+        isActive: true
+      },
+      category: user.category || 'Kahve',
+      bannerLocation: {
+        city: user.city || 'İstanbul',
+        district: user.district || null,
+        address: user.address || null,
+        coordinates: user.latitude && user.longitude ? {
+          latitude: user.latitude,
+          longitude: user.longitude
+        } : null
+      },
+      brandProfile: {
+        logo: user.logo || null,
+        description: user.description || `${user.name} markası`,
+        category: user.category || 'Kahve',
+        brandType: user.brandType || 'Restoran',
+        email: user.email || null,
+        address: user.address || null,
+        city: user.city || 'İstanbul',
+        district: user.district || null
+      },
+      status: 'active',
+      approvalStatus: 'pending', // Admin onayı bekliyor
+      offerType: 'percentage',
+      offerDetails: {
+        discountPercentage: discountPercentage || 10
+      },
+      codeQuota: {
+        total: codeQuota || 100,
+        used: 0,
+        remaining: codeQuota || 100
+      },
+      codeSettings: {
+        codeType: 'random',
+        fixedCode: null
+      },
+      stats: {
+        views: 0,
+        clicks: 0,
+        conversions: 0
+      }
+    });
+
+    await simpleBanner.save();
+    console.log('✅ Sabit banner oluşturuldu:', simpleBanner._id);
+
+    res.status(201).json({
+      success: true,
+      message: 'Banner başarıyla oluşturuldu! Admin onayı bekleniyor.',
+      data: simpleBanner
+    });
+  } catch (error) {
+    console.error('Sabit banner oluşturulurken hata:', error);
     res.status(500).json({
       success: false,
       message: 'Banner oluşturulurken hata oluştu!',
