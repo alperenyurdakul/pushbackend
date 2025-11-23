@@ -463,43 +463,73 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
     }
 
     // Açılış-Kapanış Saatleri güncelle
+    console.log('🔍 Opening Hours kontrolü:', {
+      hasOpeningHours: !!req.body.openingHours,
+      type: typeof req.body.openingHours,
+      value: req.body.openingHours
+    });
+    
     if (req.body.openingHours) {
       try {
-        const openingHours = typeof req.body.openingHours === 'string' 
-          ? JSON.parse(req.body.openingHours) 
-          : req.body.openingHours;
+        let openingHours;
+        if (typeof req.body.openingHours === 'string') {
+          openingHours = JSON.parse(req.body.openingHours);
+        } else {
+          openingHours = req.body.openingHours;
+        }
+        console.log('✅ Opening Hours parse edildi:', openingHours);
         updateData.openingHours = openingHours;
       } catch (e) {
-        console.log('Opening hours parse hatası:', e.message);
+        console.error('❌ Opening hours parse hatası:', e.message);
+        console.error('Raw value:', req.body.openingHours);
       }
+    } else {
+      console.log('⚠️ Opening Hours body\'de yok');
     }
 
     // Restoran Özellikleri güncelle
+    console.log('🔍 Features kontrolü:', {
+      hasFeatures: !!req.body.features,
+      type: typeof req.body.features,
+      value: req.body.features
+    });
+    
     if (req.body.features) {
       try {
-        const features = typeof req.body.features === 'string' 
-          ? JSON.parse(req.body.features) 
-          : req.body.features;
+        let features;
+        if (typeof req.body.features === 'string') {
+          features = JSON.parse(req.body.features);
+        } else {
+          features = req.body.features;
+        }
+        console.log('✅ Features parse edildi:', features);
         updateData.features = features;
       } catch (e) {
-        console.log('Features parse hatası:', e.message);
+        console.error('❌ Features parse hatası:', e.message);
+        console.error('Raw value:', req.body.features);
       }
+    } else {
+      console.log('⚠️ Features body\'de yok');
     }
 
     // Kullanıcıyı güncelle
+    console.log('📝 Update data:', JSON.stringify(updateData, null, 2));
+    
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       updateData,
       { new: true }
     );
 
-    console.log('Profil güncellendi:', {
+    console.log('✅ Profil güncellendi:', {
       userId: updatedUser._id,
       name: updatedUser.name,
       category: updatedUser.category,
       logo: updatedUser.logo,
       latitude: updatedUser.latitude,
-      longitude: updatedUser.longitude
+      longitude: updatedUser.longitude,
+      hasOpeningHours: !!updatedUser.openingHours,
+      hasFeatures: !!updatedUser.features
     });
 
     // Logo güncellendiyse, bu kullanıcının restaurant ve banner'larını güncelle
@@ -572,7 +602,9 @@ router.put('/update-profile', uploadS3.single('logo'), async (req, res) => {
         district: updatedUser.district,
         latitude: updatedUser.latitude,
         longitude: updatedUser.longitude,
-        logo: updatedUser.logo
+        logo: updatedUser.logo,
+        openingHours: updatedUser.openingHours,
+        features: updatedUser.features
       }
     });
 
