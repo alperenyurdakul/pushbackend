@@ -790,6 +790,7 @@ router.put('/update-profile', uploadS3.fields([
         longitude: updatedUser.longitude,
         logo: updatedUser.logo,
         menuImage: updatedUser.menuImage,
+        menuImages: updatedUser.menuImages || (updatedUser.menuImage ? [updatedUser.menuImage] : []),
         menuLink: updatedUser.menuLink,
         openingHours: updatedUser.openingHours,
         features: updatedUser.features
