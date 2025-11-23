@@ -592,10 +592,11 @@ router.put('/update-profile', uploadS3.fields([
       const base = process.env.CDN_BASE_URL || `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com`;
       const url = menuFile.location || `${base}/${key}`;
       updateData.menuImage = url;
-      // Tek görsel varsa array'e de ekle
+      // Tek görsel varsa array'e de ekle (mevcut görselleri koru)
       if (!updateData.menuImages) {
-        updateData.menuImages = [url];
-      } else if (!updateData.menuImages.includes(url)) {
+        updateData.menuImages = user.menuImages ? [...user.menuImages] : [];
+      }
+      if (!updateData.menuImages.includes(url)) {
         updateData.menuImages.push(url);
       }
       console.log('✅ Menü görseli S3e yüklendi:', url);
@@ -611,11 +612,24 @@ router.put('/update-profile', uploadS3.fields([
         menuImageUrls.push(url);
         console.log('✅ Menü görseli S3e yüklendi:', url);
       }
-      updateData.menuImages = menuImageUrls;
+      // Mevcut görselleri koru ve yeni görselleri ekle (duplicate kontrolü ile)
+      const existingImages = user.menuImages || [];
+      const combinedImages = [...existingImages];
+      menuImageUrls.forEach(newUrl => {
+        if (!combinedImages.includes(newUrl)) {
+          combinedImages.push(newUrl);
+        }
+      });
+      updateData.menuImages = combinedImages;
       // İlk görseli menuImage olarak da kaydet (eski uyumluluk için)
-      if (menuImageUrls.length > 0) {
-        updateData.menuImage = menuImageUrls[0];
+      if (updateData.menuImages.length > 0) {
+        updateData.menuImage = updateData.menuImages[0];
       }
+      console.log('✅ Menü görselleri güncellendi:', {
+        mevcut: existingImages.length,
+        yeni: menuImageUrls.length,
+        toplam: combinedImages.length
+      });
     }
 
     // Açılış-Kapanış Saatleri güncelle
