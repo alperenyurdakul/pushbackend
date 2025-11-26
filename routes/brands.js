@@ -119,7 +119,7 @@ router.get('/categories', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const brand = await User.findById(req.params.id)
-      .select('name logo bannerImage description category city district address phone email openingHours features latitude longitude brandType createdAt')
+      .select('name logo bannerImage description category city district address phone email openingHours features latitude longitude brandType menuImages menuImage menuLink createdAt')
       .lean();
     
     if (!brand) {
