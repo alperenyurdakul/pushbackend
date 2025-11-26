@@ -177,5 +177,69 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/brands/:id/reviews
+ * Marka için yorum ekle
+ */
+router.post('/:id/reviews', async (req, res) => {
+  try {
+    const { userId, userPhone, userName, rating, comment } = req.body;
+    const brandId = req.params.id;
+
+    // Check if brand exists
+    const brand = await User.findById(brandId);
+    if (!brand || (brand.userType !== 'brand' && brand.userType !== 'eventBrand')) {
+      return res.status(404).json({
+        success: false,
+        message: 'Marka bulunamadı!'
+      });
+    }
+
+    // RestaurantReview modelinde restaurant field'ı brand._id'yi kullanıyor
+    const RestaurantReview = require('../models/RestaurantReview');
+    
+    // Create review
+    const review = new RestaurantReview({
+      restaurant: brandId, // Brand ID'yi restaurant olarak kullan
+      user: userId,
+      userPhone,
+      userName,
+      rating,
+      comment,
+      status: 'approved'
+    });
+
+    await review.save();
+
+    // Update brand's average rating (reviews'ları yeniden hesapla)
+    const allReviews = await RestaurantReview.find({ 
+      restaurant: brandId,
+      status: 'approved'
+    });
+    
+    const totalRating = allReviews.reduce((sum, r) => sum + r.rating, 0);
+    const averageRating = allReviews.length > 0 ? totalRating / allReviews.length : 0;
+    
+    // Brand için rating bilgisini güncelle (User modelinde rating field'ı yoksa eklenebilir)
+    // Şimdilik sadece review'ı döndürüyoruz
+
+    // Review'ı populate et
+    await review.populate('user', 'name profilePhoto');
+
+    res.status(201).json({
+      success: true,
+      message: 'Yorum başarıyla eklendi!',
+      data: review
+    });
+  } catch (error) {
+    console.error('Yorum eklenirken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Yorum eklenirken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
 
