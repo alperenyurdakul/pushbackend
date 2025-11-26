@@ -25,7 +25,12 @@ const uploadS3 = multer({
       const original = file.originalname || 'file';
       const ext = original.includes('.') ? original.split('.').pop() : 'png';
       // Field name'e göre farklı klasörler
-      const folder = (file.fieldname === 'menuImage' || file.fieldname === 'menuImages') ? 'menus' : 'logos';
+      let folder = 'logos';
+      if (file.fieldname === 'menuImage' || file.fieldname === 'menuImages') {
+        folder = 'menus';
+      } else if (file.fieldname === 'bannerImage') {
+        folder = 'banners';
+      }
       const key = `uploads/${folder}/${Date.now()}-${Math.random().toString().slice(2)}.${ext}`;
       cb(null, key);
     },

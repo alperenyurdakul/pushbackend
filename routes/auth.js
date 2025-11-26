@@ -511,6 +511,7 @@ router.post('/update-push-token', async (req, res) => {
 // Profil güncelleme endpoint'i (S3'e yükler)
 router.put('/update-profile', uploadS3.fields([
   { name: 'logo', maxCount: 1 },
+  { name: 'bannerImage', maxCount: 1 },
   { name: 'menuImage', maxCount: 1 },
   { name: 'menuImages', maxCount: 20 }
 ]), async (req, res) => {
@@ -583,6 +584,16 @@ router.put('/update-profile', uploadS3.fields([
       const url = logoFile.location || `${base}/${key}`;
       updateData.logo = url;
       console.log('✅ Logo S3e yüklendi:', url);
+    }
+
+    // Banner görseli yükleme
+    if (req.files && req.files.bannerImage && req.files.bannerImage[0]) {
+      const bannerFile = req.files.bannerImage[0];
+      const key = bannerFile.key || bannerFile.location || bannerFile.path;
+      const base = process.env.CDN_BASE_URL || `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com`;
+      const url = bannerFile.location || `${base}/${key}`;
+      updateData.bannerImage = url;
+      console.log('✅ Banner görseli S3e yüklendi:', url);
     }
 
     // Menü görseli yükleme (tek görsel - eski uyumluluk için)
@@ -792,6 +803,7 @@ router.put('/update-profile', uploadS3.fields([
         latitude: updatedUser.latitude,
         longitude: updatedUser.longitude,
         logo: updatedUser.logo,
+        bannerImage: updatedUser.bannerImage,
         menuImage: updatedUser.menuImage,
         menuImages: updatedUser.menuImages || (updatedUser.menuImage ? [updatedUser.menuImage] : []),
         menuLink: updatedUser.menuLink,

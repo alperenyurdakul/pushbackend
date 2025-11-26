@@ -150,6 +150,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  bannerImage: {
+    type: String,
+    default: null
+  },
   menuImage: {
     type: String,
     default: null
