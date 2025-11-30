@@ -814,7 +814,16 @@ router.post('/:eventId/questions', authenticateToken, async (req, res) => {
   try {
     const { eventId } = req.params;
     const { question } = req.body;
-    const userId = req.user.userId;
+    const userId = req.userId; // authenticateToken middleware'i req.userId set ediyor
+
+    console.log('📝 Soru sorma isteği:', { eventId, userId, hasQuestion: !!question });
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kullanıcı kimliği bulunamadı!'
+      });
+    }
 
     if (!question || !question.trim()) {
       return res.status(400).json({
@@ -852,7 +861,14 @@ router.post('/:eventId/questions', authenticateToken, async (req, res) => {
     });
 
     await newQuestion.save();
-    await newQuestion.populate('askedBy', 'name profilePhoto');
+    
+    // Populate işlemi - hata olursa devam et
+    try {
+      await newQuestion.populate('askedBy', 'name profilePhoto');
+    } catch (populateError) {
+      console.warn('⚠️ Populate hatası (kritik değil):', populateError.message);
+      // Populate hatası kritik değil, zaten askedByName ve askedByProfilePhoto set edildi
+    }
 
     // Organizatöre bildirim gönder (OneSignal) - Opsiyonel, maliyet kontrolü için
     // Not: Organizatör için bildirim göndermek isterseniz aşağıdaki kodu aktif edin
@@ -886,7 +902,12 @@ router.post('/:eventId/questions', authenticateToken, async (req, res) => {
       data: newQuestion
     });
   } catch (error) {
-    console.error('Soru ekleme hatası:', error);
+    console.error('❌ Soru ekleme hatası:', error);
+    console.error('❌ Hata detayı:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     res.status(500).json({
       success: false,
       message: 'Soru eklenirken hata oluştu!',
@@ -941,7 +962,7 @@ router.post('/:eventId/questions/:questionId/answer', authenticateToken, async (
   try {
     const { eventId, questionId } = req.params;
     const { answer } = req.body;
-    const userId = req.user.userId;
+    const userId = req.userId; // authenticateToken middleware'i req.userId set ediyor
 
     if (!answer || !answer.trim()) {
       return res.status(400).json({
