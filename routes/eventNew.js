@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const Event = require('../models/Event');
 const User = require('../models/User');
 const EventReview = require('../models/EventReview');
+const EventQuestion = require('../models/EventQuestion');
 const multer = require('multer');
 const path = require('path');
 const uploadS3 = require('../middleware/uploadS3');
@@ -662,6 +663,372 @@ router.get('/organizer/:organizerId/reviews', async (req, res) => {
   } catch (error) {
     console.error('Organizer yorumları hatası:', error);
     res.status(500).json({ success: false, message: 'Yorumlar getirilirken hata oluştu' });
+  }
+});
+
+// ========== SCRAPING ENDPOINT (n8n için) ==========
+// API Key ile korumalı endpoint - scraping servisleri için
+router.post('/create-from-scraper', async (req, res) => {
+  try {
+    // API Key kontrolü
+    const apiKey = req.headers['x-api-key'] || req.body.apiKey;
+    const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY || 'your-scraper-api-key-here';
+    
+    if (apiKey !== SCRAPER_API_KEY) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Geçersiz API key' 
+      });
+    }
+    
+    const { 
+      title, 
+      description, 
+      category, 
+      startDate, 
+      endDate, 
+      location, 
+      address, 
+      bannerImage,
+      sourceUrl, // Hangi siteden çekildiği
+      sourceName // Kaynak site adı (biletix, eventbrite, vb.)
+    } = req.body;
+    
+    // Zorunlu alanlar kontrolü
+    if (!title || !description || !category || !startDate || !endDate || !location) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Eksik alanlar: title, description, category, startDate, endDate, location zorunludur' 
+      });
+    }
+    
+    // Scraper için özel bir kullanıcı oluştur veya bul
+    let scraperUser = await User.findOne({ phone: 'scraper@faydana.com' });
+    if (!scraperUser) {
+      scraperUser = new User({
+        phone: 'scraper@faydana.com',
+        password: 'scraper-password-' + Date.now(), // Rastgele şifre
+        name: 'Event Scraper',
+        userType: 'eventBrand',
+        email: 'scraper@faydana.com'
+      });
+      await scraperUser.save();
+      console.log('✅ Scraper kullanıcısı oluşturuldu');
+    }
+    
+    // Görsel yükle (base64 veya URL)
+    let bannerImageUrl = null;
+    if (bannerImage) {
+      if (bannerImage.startsWith('data:image/')) {
+        try {
+          bannerImageUrl = await uploadBase64ToS3(bannerImage, 'events');
+          console.log('✅ Scraped event banner görseli yüklendi:', bannerImageUrl);
+        } catch (uploadError) {
+          console.error('❌ Banner görseli yükleme hatası:', uploadError);
+        }
+      } else if (bannerImage.startsWith('http://') || bannerImage.startsWith('https://')) {
+        bannerImageUrl = bannerImage;
+      }
+    }
+    
+    // Adres bilgilerini parse et
+    let parsedAddress = {};
+    if (address) {
+      if (typeof address === 'string') {
+        // String ise parse etmeye çalış
+        parsedAddress = { street: address };
+      } else {
+        parsedAddress = address;
+      }
+    }
+    
+    const eventData = {
+      organizerId: scraperUser._id,
+      organizerName: `Scraper - ${sourceName || 'Unknown'}`,
+      organizerProfilePhoto: null,
+      title,
+      description,
+      category,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      location,
+      address: parsedAddress,
+      participantLimit: null,
+      bannerImage: bannerImageUrl,
+      approvalStatus: 'pending', // Admin onayı gerekli
+      status: 'upcoming',
+      // Scraping metadata
+      sourceUrl: sourceUrl || null,
+      sourceName: sourceName || 'Scraper'
+    };
+    
+    // Duplicate kontrolü - aynı başlık ve tarih varsa ekleme
+    const existingEvent = await Event.findOne({
+      title: title,
+      startDate: new Date(startDate),
+      'address.city': parsedAddress.city || address?.city
+    });
+    
+    if (existingEvent) {
+      console.log('⚠️ Duplicate event bulundu, atlanıyor:', title);
+      return res.json({
+        success: true,
+        message: 'Etkinlik zaten mevcut (duplicate)',
+        event: existingEvent,
+        duplicate: true
+      });
+    }
+    
+    const newEvent = new Event(eventData);
+    await newEvent.save();
+    
+    console.log('✅ Scraped event oluşturuldu:', {
+      eventId: newEvent._id,
+      title: newEvent.title,
+      source: sourceName,
+      approvalStatus: 'pending'
+    });
+    
+    res.json({
+      success: true,
+      message: 'Etkinlik başarıyla oluşturuldu. Admin onayından sonra yayınlanacak.',
+      event: newEvent
+    });
+  } catch (error) {
+    console.error('❌ Scraped event oluşturma hatası:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Etkinlik oluşturulurken hata oluştu',
+      error: error.message 
+    });
+  }
+});
+
+// ========== SORU-CEVAP ENDPOINT'LERİ ==========
+
+/**
+ * POST /api/event/:eventId/questions
+ * Etkinlik için soru sor
+ */
+router.post('/:eventId/questions', authenticateToken, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { question } = req.body;
+    const userId = req.user.userId;
+
+    if (!question || !question.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Soru metni gerekli!'
+      });
+    }
+
+    // Etkinliği kontrol et
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Etkinlik bulunamadı!'
+      });
+    }
+
+    // Kullanıcı bilgilerini al
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı!'
+      });
+    }
+
+    // Soruyu oluştur
+    const newQuestion = new EventQuestion({
+      eventId,
+      askedBy: userId,
+      askedByName: user.name || user.phone || 'Anonim',
+      askedByProfilePhoto: user.profilePhoto || null,
+      question: question.trim(),
+      status: 'pending'
+    });
+
+    await newQuestion.save();
+    await newQuestion.populate('askedBy', 'name profilePhoto');
+
+    // Organizatöre bildirim gönder (OneSignal) - Opsiyonel, maliyet kontrolü için
+    // Not: Organizatör için bildirim göndermek isterseniz aşağıdaki kodu aktif edin
+    // Ancak bu, soru sayısına göre maliyet artışına neden olabilir
+    /*
+    try {
+      const organizerId = event.organizerId._id || event.organizerId;
+      const organizer = await User.findById(organizerId);
+      if (organizer && organizer.oneSignalExternalId) {
+        await OneSignalService.sendToUser(
+          organizer.oneSignalExternalId,
+          '❓ Yeni Soru',
+          `${user.name || 'Bir kullanıcı'} "${event.title}" etkinliğiniz için soru sordu.`,
+          {
+            type: 'event_question',
+            eventId: eventId,
+            questionId: newQuestion._id,
+            eventTitle: event.title
+          }
+        );
+        console.log('✅ Organizatöre soru bildirimi gönderildi');
+      }
+    } catch (notifError) {
+      console.error('⚠️ Organizatör bildirimi hatası (kritik değil):', notifError.message);
+    }
+    */
+
+    res.status(201).json({
+      success: true,
+      message: 'Soru başarıyla gönderildi!',
+      data: newQuestion
+    });
+  } catch (error) {
+    console.error('Soru ekleme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Soru eklenirken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/event/:eventId/questions
+ * Etkinlik için soruları listele
+ */
+router.get('/:eventId/questions', async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    // Etkinliği kontrol et
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Etkinlik bulunamadı!'
+      });
+    }
+
+    // Soruları getir (en yeni önce)
+    const questions = await EventQuestion.find({ eventId })
+      .populate('askedBy', 'name profilePhoto')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      success: true,
+      data: questions,
+      count: questions.length
+    });
+  } catch (error) {
+    console.error('Soruları listeleme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Sorular listelenirken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/event/:eventId/questions/:questionId/answer
+ * Soruya cevap ver (sadece organizatör)
+ */
+router.post('/:eventId/questions/:questionId/answer', authenticateToken, async (req, res) => {
+  try {
+    const { eventId, questionId } = req.params;
+    const { answer } = req.body;
+    const userId = req.user.userId;
+
+    if (!answer || !answer.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cevap metni gerekli!'
+      });
+    }
+
+    // Etkinliği kontrol et
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Etkinlik bulunamadı!'
+      });
+    }
+
+    // Organizatör kontrolü
+    const organizerId = event.organizerId._id || event.organizerId;
+    if (organizerId.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bu işlem için organizatör yetkisi gereklidir!'
+      });
+    }
+
+    // Soruyu bul
+    const question = await EventQuestion.findById(questionId);
+    if (!question) {
+      return res.status(404).json({
+        success: false,
+        message: 'Soru bulunamadı!'
+      });
+    }
+
+    if (question.eventId.toString() !== eventId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Soru bu etkinliğe ait değil!'
+      });
+    }
+
+    // Cevabı güncelle
+    question.answer = answer.trim();
+    question.answeredAt = new Date();
+    question.status = 'answered';
+    await question.save();
+
+    await question.populate('askedBy', 'name profilePhoto');
+
+    // Soruyu soran kullanıcıya bildirim gönder (OneSignal)
+    try {
+      const askedByUserId = question.askedBy?._id || question.askedBy;
+      if (askedByUserId) {
+        const askedByUser = await User.findById(askedByUserId);
+        if (askedByUser && askedByUser.oneSignalExternalId) {
+          await OneSignalService.sendToUser(
+            askedByUser.oneSignalExternalId,
+            '💬 Sorunuza Cevap Geldi!',
+            `${event.title} etkinliği için sorduğunuz soruya organizatör cevap verdi.`,
+            {
+              type: 'event_question_answer',
+              eventId: eventId,
+              questionId: questionId,
+              eventTitle: event.title
+            }
+          );
+          console.log('✅ Soru-cevap bildirimi gönderildi:', askedByUser.oneSignalExternalId);
+        }
+      }
+    } catch (notifError) {
+      // Bildirim hatası kritik değil, işleme devam et
+      console.error('⚠️ Bildirim gönderme hatası (kritik değil):', notifError.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Cevap başarıyla eklendi!',
+      data: question
+    });
+  } catch (error) {
+    console.error('Cevap ekleme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Cevap eklenirken hata oluştu!',
+      error: error.message
+    });
   }
 });
 

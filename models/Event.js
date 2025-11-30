@@ -116,6 +116,16 @@ const EventSchema = new mongoose.Schema({
     default: 'upcoming'
   },
   
+  // Scraping metadata (opsiyonel)
+  sourceUrl: {
+    type: String,
+    default: null
+  },
+  sourceName: {
+    type: String,
+    default: null
+  },
+  
   createdAt: {
     type: Date,
     default: Date.now

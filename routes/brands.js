@@ -141,17 +141,18 @@ router.get('/:id', async (req, res) => {
       .limit(10)
       .lean();
     
-    // Yorumları getir (RestaurantReview'dan)
+    // Yorumları getir (RestaurantReview'dan) - Sadece onaylanmış yorumlar
     const RestaurantReview = require('../models/RestaurantReview');
     const reviews = await RestaurantReview.find({
-      restaurant: brand._id
+      restaurant: brand._id,
+      status: 'approved' // Sadece onaylanmış yorumları göster
     })
       .populate('user', 'name profilePhoto')
       .sort({ createdAt: -1 })
       .limit(20)
       .lean();
     
-    // Puan hesapla
+    // Puan hesapla - Sadece onaylanmış yorumlardan
     const ratings = reviews.map(r => r.rating).filter(Boolean);
     const averageRating = ratings.length > 0
       ? ratings.reduce((a, b) => a + b, 0) / ratings.length
@@ -198,7 +199,7 @@ router.post('/:id/reviews', async (req, res) => {
     // RestaurantReview modelinde restaurant field'ı brand._id'yi kullanıyor
     const RestaurantReview = require('../models/RestaurantReview');
     
-    // Create review
+    // Create review - Admin onayı için pending durumunda
     const review = new RestaurantReview({
       restaurant: brandId, // Brand ID'yi restaurant olarak kullan
       user: userId,
@@ -206,7 +207,7 @@ router.post('/:id/reviews', async (req, res) => {
       userName,
       rating,
       comment,
-      status: 'approved'
+      status: 'pending' // Admin onayı gerekli
     });
 
     await review.save();
@@ -228,7 +229,7 @@ router.post('/:id/reviews', async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Yorum başarıyla eklendi!',
+      message: 'Yorumunuz başarıyla gönderildi! Admin onayından sonra yayınlanacak.',
       data: review
     });
   } catch (error) {
