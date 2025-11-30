@@ -1072,10 +1072,13 @@ router.post('/:eventId/questions/:questionId/answer', authenticateToken, async (
       console.error('⚠️ Bildirim gönderme hatası (kritik değil):', notifError.message);
     }
 
+    // Mongoose document'i JSON'a çevir
+    const questionData = question.toObject ? question.toObject() : question;
+    
     res.json({
       success: true,
       message: 'Cevap başarıyla eklendi!',
-      data: question
+      data: questionData
     });
   } catch (error) {
     console.error('Cevap ekleme hatası:', error);
