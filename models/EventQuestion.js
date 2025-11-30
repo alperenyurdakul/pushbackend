@@ -44,8 +44,28 @@ const EventQuestionSchema = new mongoose.Schema({
   // Durum
   status: {
     type: String,
-    enum: ['pending', 'answered'],
+    enum: ['pending', 'approved', 'rejected', 'answered'],
     default: 'pending'
+  },
+  
+  // Moderasyon bilgileri
+  moderationStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
+  },
+  moderationReason: {
+    type: String,
+    default: null
+  },
+  moderatedAt: {
+    type: Date,
+    default: null
+  },
+  moderatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
   },
   
   createdAt: {

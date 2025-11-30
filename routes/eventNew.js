@@ -5,6 +5,7 @@ const Event = require('../models/Event');
 const User = require('../models/User');
 const EventReview = require('../models/EventReview');
 const EventQuestion = require('../models/EventQuestion');
+const { moderateContent, sanitizeContent } = require('../utils/contentModeration');
 const multer = require('multer');
 const path = require('path');
 const uploadS3 = require('../middleware/uploadS3');
@@ -832,6 +833,27 @@ router.post('/:eventId/questions', authenticateToken, async (req, res) => {
       });
     }
 
+    // İçeriği temizle
+    const sanitizedQuestion = sanitizeContent(question);
+
+    // İçerik moderasyonu kontrolü
+    const moderationResult = moderateContent(sanitizedQuestion);
+    
+    console.log('🔍 İçerik moderasyonu sonucu:', {
+      isSafe: moderationResult.isSafe,
+      riskLevel: moderationResult.riskLevel,
+      reasons: moderationResult.reasons
+    });
+
+    // Yüksek riskli içerikleri direkt reddet
+    if (moderationResult.riskLevel === 'high') {
+      return res.status(400).json({
+        success: false,
+        message: 'Soru içeriği uygun değil. Lütfen daha uygun bir dil kullanın.',
+        moderationReasons: moderationResult.reasons
+      });
+    }
+
     // Etkinliği kontrol et
     const event = await Event.findById(eventId);
     if (!event) {
@@ -850,14 +872,17 @@ router.post('/:eventId/questions', authenticateToken, async (req, res) => {
       });
     }
 
-    // Soruyu oluştur
+    // Soruyu oluştur - Direkt kaydedilir, sadece organizatör görecek
     const newQuestion = new EventQuestion({
       eventId,
       askedBy: userId,
       askedByName: user.name || user.phone || 'Anonim',
       askedByProfilePhoto: user.profilePhoto || null,
-      question: question.trim(),
-      status: 'pending'
+      question: sanitizedQuestion,
+      status: 'pending',
+      // Moderasyon durumu: Direkt onaylı (sadece organizatör görecek)
+      moderationStatus: 'approved',
+      moderationReason: moderationResult.reasons.join(', ')
     });
 
     await newQuestion.save();
@@ -870,10 +895,7 @@ router.post('/:eventId/questions', authenticateToken, async (req, res) => {
       // Populate hatası kritik değil, zaten askedByName ve askedByProfilePhoto set edildi
     }
 
-    // Organizatöre bildirim gönder (OneSignal) - Opsiyonel, maliyet kontrolü için
-    // Not: Organizatör için bildirim göndermek isterseniz aşağıdaki kodu aktif edin
-    // Ancak bu, soru sayısına göre maliyet artışına neden olabilir
-    /*
+    // Organizatöre bildirim gönder (OneSignal)
     try {
       const organizerId = event.organizerId._id || event.organizerId;
       const organizer = await User.findById(organizerId);
@@ -894,7 +916,6 @@ router.post('/:eventId/questions', authenticateToken, async (req, res) => {
     } catch (notifError) {
       console.error('⚠️ Organizatör bildirimi hatası (kritik değil):', notifError.message);
     }
-    */
 
     res.status(201).json({
       success: true,
@@ -918,11 +939,12 @@ router.post('/:eventId/questions', authenticateToken, async (req, res) => {
 
 /**
  * GET /api/event/:eventId/questions
- * Etkinlik için soruları listele
+ * Etkinlik için soruları listele - SADECE ORGANİZATÖR GÖREBİLİR
  */
-router.get('/:eventId/questions', async (req, res) => {
+router.get('/:eventId/questions', authenticateToken, async (req, res) => {
   try {
     const { eventId } = req.params;
+    const userId = req.userId;
 
     // Etkinliği kontrol et
     const event = await Event.findById(eventId);
@@ -933,8 +955,20 @@ router.get('/:eventId/questions', async (req, res) => {
       });
     }
 
-    // Soruları getir (en yeni önce)
-    const questions = await EventQuestion.find({ eventId })
+    // Organizatör kontrolü - Sadece organizatör soruları görebilir
+    const organizerId = event.organizerId._id || event.organizerId;
+    if (organizerId.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bu işlem için organizatör yetkisi gereklidir!'
+      });
+    }
+
+    // Soruları getir - sadece organizatör görebilir
+    const questions = await EventQuestion.find({ 
+      eventId,
+      moderationStatus: 'approved' // Onaylanmış sorular
+    })
       .populate('askedBy', 'name profilePhoto')
       .sort({ createdAt: -1 })
       .lean();

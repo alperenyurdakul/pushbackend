@@ -4,6 +4,8 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Banner = require('../models/Banner');
 const Event = require('../models/Event');
+const RestaurantReview = require('../models/RestaurantReview');
+const EventQuestion = require('../models/EventQuestion');
 const OneSignalService = require('../services/oneSignalService');
 
 // Admin middleware
@@ -650,6 +652,100 @@ router.get('/events/rejected', adminAuth, async (req, res) => {
   }
 });
 
+// ========== SORU MODERASYONU ==========
+
+// Bekleyen soruları listele (moderasyon için)
+router.get('/questions/pending', adminAuth, async (req, res) => {
+  try {
+    const pendingQuestions = await EventQuestion.find({ 
+      moderationStatus: 'pending' 
+    })
+    .populate('eventId', 'title organizerName')
+    .populate('askedBy', 'name phone profilePhoto')
+    .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: pendingQuestions,
+      count: pendingQuestions.length
+    });
+  } catch (error) {
+    console.error('Bekleyen sorular listeleme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Sorular listelenirken hata oluştu!'
+    });
+  }
+});
+
+// Soruyu onayla
+router.post('/questions/:id/approve', adminAuth, async (req, res) => {
+  try {
+    const question = await EventQuestion.findById(req.params.id);
+    
+    if (!question) {
+      return res.status(404).json({
+        success: false,
+        message: 'Soru bulunamadı!'
+      });
+    }
+
+    question.moderationStatus = 'approved';
+    question.moderatedAt = new Date();
+    question.moderatedBy = req.user._id;
+    await question.save();
+
+    console.log(`✅ Soru onaylandı: ${question._id}`);
+
+    res.json({
+      success: true,
+      message: 'Soru başarıyla onaylandı!',
+      question: question
+    });
+  } catch (error) {
+    console.error('Soru onaylama hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Soru onaylanırken hata oluştu!'
+    });
+  }
+});
+
+// Soruyu reddet
+router.post('/questions/:id/reject', adminAuth, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const question = await EventQuestion.findById(req.params.id);
+    
+    if (!question) {
+      return res.status(404).json({
+        success: false,
+        message: 'Soru bulunamadı!'
+      });
+    }
+
+    question.moderationStatus = 'rejected';
+    question.moderatedAt = new Date();
+    question.moderatedBy = req.user._id;
+    question.moderationReason = reason || 'Uygunsuz içerik';
+    await question.save();
+
+    console.log(`❌ Soru reddedildi: ${question._id}`);
+
+    res.json({
+      success: true,
+      message: 'Soru reddedildi!',
+      question: question
+    });
+  } catch (error) {
+    console.error('Soru reddetme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Soru reddedilirken hata oluştu!'
+    });
+  }
+});
+
 console.log('🔧 Admin Routes kayıtlı:');
 console.log('  - POST /admin/login');
 console.log('  - GET /admin/banners/pending');
@@ -664,6 +760,9 @@ console.log('  - POST /admin/events/:id/approve');
 console.log('  - POST /admin/events/:id/reject');
 console.log('  - GET /admin/events/approved');
 console.log('  - GET /admin/events/rejected');
+console.log('  - GET /admin/questions/pending');
+console.log('  - POST /admin/questions/:id/approve');
+console.log('  - POST /admin/questions/:id/reject');
 
 module.exports = router;
 
