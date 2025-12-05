@@ -5,42 +5,42 @@ const User = require('../models/User');
 const Restaurant = require('../models/Restaurant');
 const Banner = require('../models/Banner');
 
-// İstanbul koordinatları ve ilçeleri
-const ISTANBUL_LOCATIONS = [
-  { city: 'İstanbul', district: 'Kadıköy', address: 'Bağdat Caddesi No:123', lat: 40.9819, lng: 29.0246 },
-  { city: 'İstanbul', district: 'Beşiktaş', address: 'Barbaros Bulvarı No:45', lat: 41.0430, lng: 29.0084 },
-  { city: 'İstanbul', district: 'Şişli', address: 'Cumhuriyet Caddesi No:78', lat: 41.0602, lng: 28.9874 },
-  { city: 'İstanbul', district: 'Beyoğlu', address: 'İstiklal Caddesi No:156', lat: 41.0369, lng: 28.9850 },
-  { city: 'İstanbul', district: 'Üsküdar', address: 'Bulgurlu Mahallesi No:89', lat: 41.0214, lng: 29.0124 },
-  { city: 'İstanbul', district: 'Bakırköy', address: 'Ataköy Marina No:234', lat: 40.9820, lng: 28.8560 },
-  { city: 'İstanbul', district: 'Ataşehir', address: 'Barbaros Mahallesi No:67', lat: 40.9833, lng: 29.1164 },
-  { city: 'İstanbul', district: 'Maltepe', address: 'Bağlarbaşı Caddesi No:145', lat: 40.9333, lng: 29.1500 },
-  { city: 'İstanbul', district: 'Kartal', address: 'Yukarı Mahalle No:12', lat: 40.9100, lng: 29.1725 },
-  { city: 'İstanbul', district: 'Pendik', address: 'Kurtköy Mahallesi No:56', lat: 40.8783, lng: 29.2353 },
-  { city: 'İstanbul', district: 'Beylikdüzü', address: 'Yakuplu Mahallesi No:234', lat: 41.0000, lng: 28.6333 },
-  { city: 'İstanbul', district: 'Avcılar', address: 'Merkez Mahallesi No:78', lat: 41.0167, lng: 28.7167 },
-  { city: 'İstanbul', district: 'Zeytinburnu', address: 'Telsiz Mahallesi No:90', lat: 41.0000, lng: 28.9000 },
-  { city: 'İstanbul', district: 'Fatih', address: 'Sultanahmet Meydanı No:1', lat: 41.0086, lng: 28.9802 },
-  { city: 'İstanbul', district: 'Sarıyer', address: 'Büyükdere Caddesi No:345', lat: 41.1167, lng: 29.0500 }
+// Samsun koordinatları ve ilçeleri
+const SAMSUN_LOCATIONS = [
+  { city: 'Samsun', district: 'Atakum', address: 'Atakum Sahil Yolu No:123', lat: 41.3379, lng: 36.2677 },
+  { city: 'Samsun', district: 'İlkadım', address: 'Cumhuriyet Meydanı No:45', lat: 41.2928, lng: 36.3311 },
+  { city: 'Samsun', district: 'Canik', address: 'Canik Caddesi No:78', lat: 41.2583, lng: 36.3375 },
+  { city: 'Samsun', district: 'Tekkeköy', address: 'Tekkeköy Merkez No:156', lat: 41.2167, lng: 36.4667 },
+  { city: 'Samsun', district: 'Bafra', address: 'Bafra Sahil Yolu No:89', lat: 41.5667, lng: 35.9000 },
+  { city: 'Samsun', district: 'Çarşamba', address: 'Çarşamba Merkez No:234', lat: 41.2000, lng: 36.7333 },
+  { city: 'Samsun', district: 'Terme', address: 'Terme Sahil Caddesi No:67', lat: 41.2167, lng: 37.0167 },
+  { city: 'Samsun', district: 'Alaçam', address: 'Alaçam Merkez No:145', lat: 41.6167, lng: 35.6000 },
+  { city: 'Samsun', district: 'Vezirköprü', address: 'Vezirköprü Merkez No:12', lat: 41.1500, lng: 35.4500 },
+  { city: 'Samsun', district: 'Havza', address: 'Havza Merkez No:56', lat: 40.9667, lng: 35.6667 },
+  { city: 'Samsun', district: 'Atakum', address: 'Kurupelit Mahallesi No:234', lat: 41.3500, lng: 36.2500 },
+  { city: 'Samsun', district: 'İlkadım', address: 'Kale Mahallesi No:78', lat: 41.3000, lng: 36.3500 },
+  { city: 'Samsun', district: 'Canik', address: 'Gölalan Mahallesi No:90', lat: 41.2700, lng: 36.3200 },
+  { city: 'Samsun', district: 'Atakum', address: 'Çatalçam Mahallesi No:1', lat: 41.3200, lng: 36.2800 },
+  { city: 'Samsun', district: 'İlkadım', address: 'Kadıköy Mahallesi No:345', lat: 41.2800, lng: 36.3400 }
 ];
 
-// Gerçekçi marka isimleri ve kategoriler
+// Gerçekçi marka isimleri ve kategoriler (Samsun)
 const REAL_BRANDS = [
-  { name: 'Starbucks Kadıköy', category: 'Kahve', brandType: 'Kafe' },
-  { name: 'Burger King Beşiktaş', category: 'Yiyecek', brandType: 'Fast Food' },
-  { name: 'Zara Şişli', category: 'Giyim', brandType: 'Mağaza' },
-  { name: 'Mado Beyoğlu', category: 'Tatlı', brandType: 'Dondurma' },
-  { name: 'LC Waikiki Üsküdar', category: 'Giyim', brandType: 'Mağaza' },
-  { name: 'Gloria Jeans Bakırköy', category: 'Kahve', brandType: 'Kafe' },
-  { name: 'Pizza Hut Ataşehir', category: 'Yiyecek', brandType: 'Restoran' },
-  { name: 'Migros Maltepe', category: 'Market', brandType: 'Market' },
-  { name: 'KFC Kartal', category: 'Yiyecek', brandType: 'Fast Food' },
-  { name: 'Kahve Dünyası Pendik', category: 'Kahve', brandType: 'Kafe' },
-  { name: 'Teknosa Beylikdüzü', category: 'Market', brandType: 'Elektronik' },
-  { name: 'BIM Avcılar', category: 'Market', brandType: 'Market' },
-  { name: 'Koton Zeytinburnu', category: 'Giyim', brandType: 'Mağaza' },
-  { name: 'Saray Muhallebicisi Fatih', category: 'Tatlı', brandType: 'Tatlıcı' },
-  { name: 'Café Nero Sarıyer', category: 'Kahve', brandType: 'Kafe' }
+  { name: 'Starbucks Atakum', category: 'Kahve', brandType: 'Kafe' },
+  { name: 'Burger King İlkadım', category: 'Yiyecek', brandType: 'Fast Food' },
+  { name: 'LC Waikiki Canik', category: 'Giyim', brandType: 'Mağaza' },
+  { name: 'Mado Tekkeköy', category: 'Tatlı', brandType: 'Dondurma' },
+  { name: 'Koton Bafra', category: 'Giyim', brandType: 'Mağaza' },
+  { name: 'Gloria Jeans Çarşamba', category: 'Kahve', brandType: 'Kafe' },
+  { name: 'Pizza Hut Terme', category: 'Yiyecek', brandType: 'Restoran' },
+  { name: 'Migros Alaçam', category: 'Market', brandType: 'Market' },
+  { name: 'KFC Vezirköprü', category: 'Yiyecek', brandType: 'Fast Food' },
+  { name: 'Kahve Dünyası Havza', category: 'Kahve', brandType: 'Kafe' },
+  { name: 'Teknosa Atakum', category: 'Market', brandType: 'Elektronik' },
+  { name: 'BIM İlkadım', category: 'Market', brandType: 'Market' },
+  { name: 'Defacto Canik', category: 'Giyim', brandType: 'Mağaza' },
+  { name: 'Saray Muhallebicisi Atakum', category: 'Tatlı', brandType: 'Tatlıcı' },
+  { name: 'Café Nero İlkadım', category: 'Kahve', brandType: 'Kafe' }
 ];
 
 // Gerçekçi banner başlıkları
@@ -160,7 +160,7 @@ async function cleanAndCreateRealBanners() {
     const restaurants = [];
     for (let i = 0; i < REAL_BRANDS.length; i++) {
       const brand = REAL_BRANDS[i];
-      const location = ISTANBUL_LOCATIONS[i];
+      const location = SAMSUN_LOCATIONS[i];
       
       let restaurant = await Restaurant.findOne({ name: brand.name });
       
@@ -221,7 +221,7 @@ async function cleanAndCreateRealBanners() {
     
     for (let i = 0; i < 15; i++) {
       const brand = REAL_BRANDS[i];
-      const location = ISTANBUL_LOCATIONS[i];
+      const location = SAMSUN_LOCATIONS[i];
       const restaurant = restaurants[i];
       
       const startDate = new Date();

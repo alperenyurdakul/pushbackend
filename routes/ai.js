@@ -883,6 +883,24 @@ router.get('/banners/active', async (req, res) => {
   try {
     const { restaurantName } = req.query;
     
+    // Kullanıcının şehir tercihini al (token varsa)
+    let userCity = null;
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      if (token) {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.userId);
+        if (user && user.preferences && user.preferences.city) {
+          userCity = user.preferences.city;
+          console.log('📍 Kullanıcı şehir tercihi:', userCity);
+        }
+      }
+    } catch (tokenError) {
+      // Token yoksa veya geçersizse devam et (misafir kullanıcılar için)
+      console.log('ℹ️ Token yok veya geçersiz, şehir filtresi uygulanmayacak');
+    }
+    
     // Campaign tipindeki VE ONAYLANMIŞ banner'ları getir (contentType null olanlar da dahil - geriye uyumluluk)
     let query = { 
       status: 'active',
@@ -903,12 +921,30 @@ router.get('/banners/active', async (req, res) => {
     }
     
     // Sadece gerekli fieldları getir - En yeni kampanyalar önce
-    const activeBanners = await Banner.find(query)
+    let activeBanners = await Banner.find(query)
       .select('title description category status approvalStatus createdAt validUntil bannerLocation restaurant brandProfile stats bannerImage campaign startDate endDate codeQuota')
       .populate('restaurant', 'name logo address averageRating totalReviews')
       .populate('brandProfile', 'logo city brandType address')
       .sort({ createdAt: -1 }) // En yeni önce
       .lean(); // JSON object döndür (hızlı)
+    
+    // Kullanıcının şehir tercihine göre filtrele
+    if (userCity) {
+      const filteredBanners = activeBanners.filter(banner => {
+        // Banner'ın şehir bilgisini kontrol et
+        const bannerCity = banner.bannerLocation?.city || 
+                          banner.brandProfile?.city || 
+                          banner.restaurant?.address?.city;
+        
+        // Şehir eşleşiyorsa veya şehir bilgisi yoksa göster (şehir bilgisi olmayan banner'ları da göster)
+        return !bannerCity || bannerCity === userCity;
+      });
+      
+      console.log(`📍 Şehir filtresi uygulandı: ${userCity}`);
+      console.log(`   Filtreleme öncesi: ${activeBanners.length} banner`);
+      console.log(`   Filtreleme sonrası: ${filteredBanners.length} banner`);
+      activeBanners = filteredBanners;
+    }
     
     console.log('Backend: Found banners:', activeBanners.length);
     console.log('Backend: Banner categories:', activeBanners.map(b => ({ 
@@ -916,7 +952,8 @@ router.get('/banners/active', async (req, res) => {
       title: b.title, 
       category: b.category,
       contentType: b.contentType,
-      restaurant: b.restaurant?.name 
+      restaurant: b.restaurant?.name,
+      city: b.bannerLocation?.city || b.brandProfile?.city || b.restaurant?.address?.city
     })));
     
     // Debug: İlk banner'ın campaign verisini logla
@@ -943,8 +980,26 @@ router.get('/banners/active', async (req, res) => {
 // Etkinlik banner'larını getir (Sadece onaylanmış)
 router.get('/banners/events', async (req, res) => {
   try {
+    // Kullanıcının şehir tercihini al (token varsa)
+    let userCity = null;
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      if (token) {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.userId);
+        if (user && user.preferences && user.preferences.city) {
+          userCity = user.preferences.city;
+          console.log('📍 Kullanıcı şehir tercihi (events):', userCity);
+        }
+      }
+    } catch (tokenError) {
+      // Token yoksa veya geçersizse devam et (misafir kullanıcılar için)
+      console.log('ℹ️ Token yok veya geçersiz, şehir filtresi uygulanmayacak');
+    }
+    
     // Sadece event tipindeki VE ONAYLANMIŞ banner'ları getir - En yeni etkinlikler önce
-    const eventBanners = await Banner.find({ 
+    let eventBanners = await Banner.find({ 
       status: 'active', 
       contentType: 'event',
       approvalStatus: 'approved' // Sadece onaylanmış banner'lar
@@ -954,6 +1009,24 @@ router.get('/banners/events', async (req, res) => {
     .populate('brandProfile', 'logo city brandType address')
     .sort({ createdAt: -1 }) // En yeni önce
     .lean(); // JSON object döndür (hızlı)
+    
+    // Kullanıcının şehir tercihine göre filtrele
+    if (userCity) {
+      const filteredBanners = eventBanners.filter(banner => {
+        // Banner'ın şehir bilgisini kontrol et
+        const bannerCity = banner.bannerLocation?.city || 
+                          banner.brandProfile?.city || 
+                          banner.restaurant?.address?.city;
+        
+        // Şehir eşleşiyorsa veya şehir bilgisi yoksa göster (şehir bilgisi olmayan banner'ları da göster)
+        return !bannerCity || bannerCity === userCity;
+      });
+      
+      console.log(`📍 Şehir filtresi uygulandı (events): ${userCity}`);
+      console.log(`   Filtreleme öncesi: ${eventBanners.length} event banner`);
+      console.log(`   Filtreleme sonrası: ${filteredBanners.length} event banner`);
+      eventBanners = filteredBanners;
+    }
     
     console.log('Backend: Found event banners:', eventBanners.length);
     
