@@ -548,6 +548,26 @@ router.post('/events/:id/approve', adminAuth, async (req, res) => {
 });
 
 // TEST: Batch'i manuel olarak tetikle (sadece test için)
+// Batch durumunu kontrol et
+router.get('/test/batch-status', adminAuth, async (req, res) => {
+  try {
+    const { getBatchStatus } = require('../services/notificationQueueService');
+    const status = getBatchStatus();
+    
+    res.json({
+      success: true,
+      data: status
+    });
+  } catch (error) {
+    console.error('❌ Batch durum kontrolü hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Batch durumu kontrol edilirken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
 router.post('/test/batch-trigger', adminAuth, async (req, res) => {
   try {
     const { triggerBatchManually } = require('../services/notificationQueueService');

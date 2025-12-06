@@ -21,11 +21,20 @@ const addNotificationToBatch = (notification) => {
     };
 
     batchNotifications.push(event);
-    console.log(`📦 Bildirim batch'e eklendi: ${notification.type} (Toplam: ${batchNotifications.length})`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`📦 Bildirim batch'e eklendi:`);
+    console.log(`   Tip: ${notification.type}`);
+    console.log(`   Başlık: ${notification.title}`);
+    console.log(`   Filtreler:`, JSON.stringify(notification.filters || {}, null, 2));
+    console.log(`   Toplam batch sayısı: ${batchNotifications.length}`);
+    console.log(`   Zaman: ${new Date().toISOString()}`);
+    console.log(`   Sonraki batch işleme: 15 dakika sonra`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
     return true;
   } catch (error) {
     console.error('❌ Batch ekleme hatası:', error);
+    console.error('   Error stack:', error.stack);
     return false;
   }
 };
@@ -35,6 +44,9 @@ const addNotificationToBatch = (notification) => {
  */
 const processBatch = async () => {
   try {
+    console.log(`\n⏰ [${new Date().toISOString()}] Batch kontrol ediliyor...`);
+    console.log(`📦 Batch'te ${batchNotifications.length} bildirim var`);
+    
     if (batchNotifications.length === 0) {
       console.log('📦 Batch boş, işlenecek bir şey yok');
       return;
@@ -42,7 +54,13 @@ const processBatch = async () => {
 
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     console.log(`📦 BATCH İŞLEMİ BAŞLADI: ${batchNotifications.length} bildirim`);
+    console.log(`⏰ Zaman: ${new Date().toISOString()}`);
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    
+    // Batch içeriğini logla
+    batchNotifications.forEach((notif, index) => {
+      console.log(`  ${index + 1}. ${notif.type} - ${notif.title} (${new Date(notif.timestamp).toISOString()})`);
+    });
 
     // Bildirimleri tipe göre grupla
     const groupedNotifications = groupNotificationsByType(batchNotifications);
@@ -384,15 +402,22 @@ const cleanupInvalidTokens = async (userIds) => {
  */
 const startBatchJob = () => {
   // Her 15 dakikada bir batch'i işle
-  cron.schedule('*/15 * * * *', () => {
-    console.log('⏰ 15 dakika doldu, batch işleniyor...');
+  const cronExpression = '*/15 * * * *'; // Her 15 dakikada bir
+  cron.schedule(cronExpression, () => {
+    console.log('\n⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰');
+    console.log(`⏰ 15 dakika doldu, batch işleniyor...`);
+    console.log(`⏰ Zaman: ${new Date().toISOString()}`);
+    console.log(`⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰ ⏰\n`);
     processBatch();
   });
 
-  // İlk açılışta da çalıştır (opsiyonel)
+  // İlk açılışta da çalıştır (opsiyonel - test için)
   // processBatch();
 
   console.log('✅ Batch job başlatıldı (15 dakika)');
+  console.log(`   Cron expression: ${cronExpression}`);
+  console.log(`   İlk batch işleme: 15 dakika sonra`);
+  console.log(`   Sonraki batch işlemeleri: Her 15 dakikada bir`);
 };
 
 /**
@@ -424,10 +449,30 @@ const triggerBatchManually = async () => {
   await processBatch();
 };
 
+/**
+ * Batch durumunu kontrol et (test için)
+ */
+const getBatchStatus = () => {
+  return {
+    batchSize: batchNotifications.length,
+    notifications: batchNotifications.map(n => ({
+      type: n.type,
+      title: n.title,
+      body: n.body,
+      timestamp: new Date(n.timestamp).toISOString(),
+      filters: n.filters,
+      data: n.data
+    })),
+    nextProcessTime: '15 dakika sonra (cron job)',
+    currentTime: new Date().toISOString()
+  };
+};
+
 module.exports = {
   addNotificationToBatch,
   processBatch,
   startBatchJob,
   shutdown,
-  triggerBatchManually
+  triggerBatchManually,
+  getBatchStatus
 };

@@ -632,6 +632,27 @@ const sendBulkPushNotifications = async (users, title, body, data = {}) => {
   console.log(`📊 Toplu push tamamlandı: ${results.success} başarılı, ${results.failed} başarısız`);
   console.log(`📈 İşlenen kullanıcı: ${processedUsers}/${totalUsers} (${Math.round(processedUsers / totalUsers * 100)}%)`);
   
+  // Geçersiz token'ları temizle
+  if (results.invalidTokens.length > 0) {
+    console.log(`🧹 ${results.invalidTokens.length} geçersiz token temizleniyor...`);
+    const User = require('../models/User');
+    try {
+      await User.updateMany(
+        { _id: { $in: results.invalidTokens } },
+        {
+          $unset: {
+            pushToken: '',
+            pushPlatform: '',
+            pushTokenType: ''
+          }
+        }
+      );
+      console.log(`✅ ${results.invalidTokens.length} geçersiz token temizlendi`);
+    } catch (error) {
+      console.error('❌ Token temizleme hatası:', error);
+    }
+  }
+  
   return results;
 };
 
