@@ -24,29 +24,29 @@ const SAMSUN_LOCATIONS = [
   { city: 'Samsun', district: 'İlkadım', address: 'Kadıköy Mahallesi No:345', lat: 41.2800, lng: 36.3400 }
 ];
 
-// Gerçekçi marka isimleri ve kategoriler (Samsun)
-const REAL_BRANDS = [
-  { name: 'Starbucks Atakum', category: 'Kahve', brandType: 'Kafe' },
-  { name: 'Burger King İlkadım', category: 'Yiyecek', brandType: 'Fast Food' },
-  { name: 'LC Waikiki Canik', category: 'Giyim', brandType: 'Mağaza' },
-  { name: 'Mado Tekkeköy', category: 'Tatlı', brandType: 'Dondurma' },
-  { name: 'Koton Bafra', category: 'Giyim', brandType: 'Mağaza' },
-  { name: 'Gloria Jeans Çarşamba', category: 'Kahve', brandType: 'Kafe' },
-  { name: 'Pizza Hut Terme', category: 'Yiyecek', brandType: 'Restoran' },
-  { name: 'Migros Alaçam', category: 'Market', brandType: 'Market' },
-  { name: 'KFC Vezirköprü', category: 'Yiyecek', brandType: 'Fast Food' },
-  { name: 'Kahve Dünyası Havza', category: 'Kahve', brandType: 'Kafe' },
-  { name: 'Teknosa Atakum', category: 'Market', brandType: 'Elektronik' },
-  { name: 'BIM İlkadım', category: 'Market', brandType: 'Market' },
-  { name: 'Defacto Canik', category: 'Giyim', brandType: 'Mağaza' },
-  { name: 'Saray Muhallebicisi Atakum', category: 'Tatlı', brandType: 'Tatlıcı' },
-  { name: 'Café Nero İlkadım', category: 'Kahve', brandType: 'Kafe' }
+// Özgün marka isimleri ve kategoriler (Samsun)
+const BRANDS = [
+  { name: 'Sahil Kahvesi', category: 'Kahve', brandType: 'Kafe', logo: 'https://images.unsplash.com/photo-1511920170033-f8396924c348?w=400&h=400&fit=crop' },
+  { name: 'Lezzet Durağı', category: 'Yiyecek', brandType: 'Fast Food', logo: 'https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=400&h=400&fit=crop' },
+  { name: 'Moda Evi Samsun', category: 'Giyim', brandType: 'Mağaza', logo: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=400&fit=crop' },
+  { name: 'Dondurma Köşesi', category: 'Tatlı', brandType: 'Dondurma', logo: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?w=400&h=400&fit=crop' },
+  { name: 'Şık Giyim', category: 'Giyim', brandType: 'Mağaza', logo: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=400&h=400&fit=crop' },
+  { name: 'Karadeniz Kahvesi', category: 'Kahve', brandType: 'Kafe', logo: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&h=400&fit=crop' },
+  { name: 'Pizza Köşkü', category: 'Yiyecek', brandType: 'Restoran', logo: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&h=400&fit=crop' },
+  { name: 'Günlük Market', category: 'Market', brandType: 'Market', logo: 'https://images.unsplash.com/photo-1556910096-6f5e72db6803?w=400&h=400&fit=crop' },
+  { name: 'Tavuk Evi', category: 'Yiyecek', brandType: 'Fast Food', logo: 'https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=400&h=400&fit=crop' },
+  { name: 'Kahve Bahçesi', category: 'Kahve', brandType: 'Kafe', logo: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=400&h=400&fit=crop' },
+  { name: 'Teknoloji Mağazası', category: 'Market', brandType: 'Elektronik', logo: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=400&h=400&fit=crop' },
+  { name: 'Hızlı Market', category: 'Market', brandType: 'Market', logo: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=400&fit=crop' },
+  { name: 'Trend Moda', category: 'Giyim', brandType: 'Mağaza', logo: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&h=400&fit=crop' },
+  { name: 'Tatlı Köşesi', category: 'Tatlı', brandType: 'Tatlıcı', logo: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&h=400&fit=crop' },
+  { name: 'Sahil Kafe', category: 'Kahve', brandType: 'Kafe', logo: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&h=400&fit=crop' }
 ];
 
-// Gerçekçi banner başlıkları
-const REAL_BANNER_TITLES = [
+// Banner başlıkları
+const BANNER_TITLES = [
   'Kahve Keyfi %25 İndirim',
-  'Burger Menüde %30 İndirim',
+  'Lezzet Menüde %30 İndirim',
   'Yaz Koleksiyonunda %40 İndirim',
   'Dondurma Çeşitlerinde %20 İndirim',
   'Giyim Ürünlerinde %35 İndirim',
@@ -62,10 +62,10 @@ const REAL_BANNER_TITLES = [
   'Kahve ve Kahvaltı %20 İndirim'
 ];
 
-// Gerçekçi banner açıklamaları
-const REAL_BANNER_DESCRIPTIONS = [
+// Banner açıklamaları
+const BANNER_DESCRIPTIONS = [
   'Tüm kahve çeşitlerimizde ve atıştırmalıklarımızda %25 indirim fırsatı. Hemen gelin, keyifli anlar yaşayın!',
-  'Seçili burger menülerimizde %30 indirim. Lezzet dolu burger deneyimi için bizi ziyaret edin!',
+  'Seçili menülerimizde %30 indirim. Lezzet dolu deneyim için bizi ziyaret edin!',
   'Yaz koleksiyonumuzda %40\'a varan indirimler. Yeni sezon ürünlerimizi keşfedin!',
   'Dondurma çeşitlerimizde %20 indirim. Serinletici lezzetler için bizi ziyaret edin!',
   'Giyim ürünlerimizde %35 indirim. Şık ve modern kıyafetler için mağazamıza uğrayın!',
@@ -81,8 +81,8 @@ const REAL_BANNER_DESCRIPTIONS = [
   'Kahve ve kahvaltı ürünlerimizde %20 indirim. Güne lezzetli bir başlangıç yapın!'
 ];
 
-// Gerçek banner görselleri (Unsplash)
-const REAL_BANNER_IMAGES = [
+// Banner görselleri (Unsplash)
+const BANNER_IMAGES = [
   'https://images.unsplash.com/photo-1511920170033-f8396924c348?w=1200&h=600&fit=crop', // Kahve
   'https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=1200&h=600&fit=crop', // Burger
   'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&h=600&fit=crop', // Giyim
@@ -91,7 +91,7 @@ const REAL_BANNER_IMAGES = [
   'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=1200&h=600&fit=crop', // Kahve
   'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1200&h=600&fit=crop', // Pizza
   'https://images.unsplash.com/photo-1556910096-6f5e72db6803?w=1200&h=600&fit=crop', // Market
-  'https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=1200&h=600&fit=crop', // KFC
+  'https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=1200&h=600&fit=crop', // Tavuk
   'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1200&h=600&fit=crop', // Kahve
   'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=1200&h=600&fit=crop', // Elektronik
   'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&h=600&fit=crop', // Market
@@ -99,6 +99,72 @@ const REAL_BANNER_IMAGES = [
   'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=1200&h=600&fit=crop', // Tatlı
   'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=1200&h=600&fit=crop'  // Kahve
 ];
+
+// Kategoriye göre açılış-kapanış saatleri
+const getWorkingHours = (category) => {
+  switch (category) {
+    case 'Kahve':
+      return {
+        monday: { open: '07:00', close: '23:00' },
+        tuesday: { open: '07:00', close: '23:00' },
+        wednesday: { open: '07:00', close: '23:00' },
+        thursday: { open: '07:00', close: '23:00' },
+        friday: { open: '07:00', close: '00:00' },
+        saturday: { open: '08:00', close: '00:00' },
+        sunday: { open: '08:00', close: '23:00' }
+      };
+    case 'Yiyecek':
+      return {
+        monday: { open: '10:00', close: '22:00' },
+        tuesday: { open: '10:00', close: '22:00' },
+        wednesday: { open: '10:00', close: '22:00' },
+        thursday: { open: '10:00', close: '22:00' },
+        friday: { open: '10:00', close: '23:00' },
+        saturday: { open: '11:00', close: '23:00' },
+        sunday: { open: '11:00', close: '22:00' }
+      };
+    case 'Giyim':
+      return {
+        monday: { open: '09:00', close: '20:00' },
+        tuesday: { open: '09:00', close: '20:00' },
+        wednesday: { open: '09:00', close: '20:00' },
+        thursday: { open: '09:00', close: '20:00' },
+        friday: { open: '09:00', close: '21:00' },
+        saturday: { open: '10:00', close: '21:00' },
+        sunday: { open: '10:00', close: '20:00' }
+      };
+    case 'Tatlı':
+      return {
+        monday: { open: '09:00', close: '22:00' },
+        tuesday: { open: '09:00', close: '22:00' },
+        wednesday: { open: '09:00', close: '22:00' },
+        thursday: { open: '09:00', close: '22:00' },
+        friday: { open: '09:00', close: '23:00' },
+        saturday: { open: '10:00', close: '23:00' },
+        sunday: { open: '10:00', close: '22:00' }
+      };
+    case 'Market':
+      return {
+        monday: { open: '08:00', close: '22:00' },
+        tuesday: { open: '08:00', close: '22:00' },
+        wednesday: { open: '08:00', close: '22:00' },
+        thursday: { open: '08:00', close: '22:00' },
+        friday: { open: '08:00', close: '22:00' },
+        saturday: { open: '08:00', close: '22:00' },
+        sunday: { open: '09:00', close: '22:00' }
+      };
+    default:
+      return {
+        monday: { open: '09:00', close: '22:00' },
+        tuesday: { open: '09:00', close: '22:00' },
+        wednesday: { open: '09:00', close: '22:00' },
+        thursday: { open: '09:00', close: '22:00' },
+        friday: { open: '09:00', close: '23:00' },
+        saturday: { open: '10:00', close: '23:00' },
+        sunday: { open: '10:00', close: '22:00' }
+      };
+  }
+};
 
 async function cleanAndCreateRealBanners() {
   try {
@@ -158,9 +224,10 @@ async function cleanAndCreateRealBanners() {
 
     // Restaurant'ları oluştur veya bul
     const restaurants = [];
-    for (let i = 0; i < REAL_BRANDS.length; i++) {
-      const brand = REAL_BRANDS[i];
+    for (let i = 0; i < BRANDS.length; i++) {
+      const brand = BRANDS[i];
       const location = SAMSUN_LOCATIONS[i];
+      const workingHours = getWorkingHours(brand.category);
       
       let restaurant = await Restaurant.findOne({ name: brand.name });
       
@@ -181,24 +248,16 @@ async function cleanAndCreateRealBanners() {
             phone: `0532${String(i + 1).padStart(7, '0')}`,
             email: `${brand.name.toLowerCase().replace(/\s+/g, '')}@example.com`
           },
-          workingHours: {
-            monday: { open: '09:00', close: '22:00' },
-            tuesday: { open: '09:00', close: '22:00' },
-            wednesday: { open: '09:00', close: '22:00' },
-            thursday: { open: '09:00', close: '22:00' },
-            friday: { open: '09:00', close: '23:00' },
-            saturday: { open: '10:00', close: '23:00' },
-            sunday: { open: '10:00', close: '22:00' }
-          },
-          logo: null,
+          workingHours: workingHours,
+          logo: brand.logo,
           description: `${brand.name} - ${brand.brandType}`,
           isActive: true
         });
         
         await restaurant.save();
-        console.log(`✅ Restaurant oluşturuldu: ${brand.name}`);
+        console.log(`✅ Restaurant oluşturuldu: ${brand.name} (${brand.category})`);
       } else {
-        // Mevcut restaurant'ın adres bilgilerini güncelle
+        // Mevcut restaurant'ın bilgilerini güncelle
         restaurant.address = {
           street: location.address,
           city: location.city,
@@ -208,6 +267,8 @@ async function cleanAndCreateRealBanners() {
             lng: location.lng
           }
         };
+        restaurant.workingHours = workingHours;
+        restaurant.logo = brand.logo;
         await restaurant.save();
         console.log(`✅ Restaurant güncellendi: ${brand.name}`);
       }
@@ -215,29 +276,34 @@ async function cleanAndCreateRealBanners() {
       restaurants.push(restaurant);
     }
 
-    // 15 adet gerçek banner oluştur
-    console.log('\n📦 Gerçek banner\'lar oluşturuluyor...');
+    // 15 adet banner oluştur
+    console.log('\n📦 Banner\'lar oluşturuluyor...');
     const createdBanners = [];
     
     for (let i = 0; i < 15; i++) {
-      const brand = REAL_BRANDS[i];
+      const brand = BRANDS[i];
       const location = SAMSUN_LOCATIONS[i];
       const restaurant = restaurants[i];
+      const workingHours = getWorkingHours(brand.category);
       
       const startDate = new Date();
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 30); // 30 gün sonra bitiyor
       
       // İndirim yüzdesini başlıktan çıkar
-      const discountMatch = REAL_BANNER_TITLES[i].match(/%(\d+)/);
+      const discountMatch = BANNER_TITLES[i].match(/%(\d+)/);
       const discountPercentage = discountMatch ? parseInt(discountMatch[1]) : 20;
+      
+      // Kampanya saatlerini çalışma saatlerine göre ayarla
+      const campaignStartTime = workingHours.monday.open;
+      const campaignEndTime = workingHours.friday.close; // En geç kapanış saati
       
       const banner = new Banner({
         restaurant: restaurant._id,
-        title: REAL_BANNER_TITLES[i],
-        description: REAL_BANNER_DESCRIPTIONS[i],
-        aiGeneratedText: REAL_BANNER_DESCRIPTIONS[i],
-        bannerImage: REAL_BANNER_IMAGES[i],
+        title: BANNER_TITLES[i],
+        description: BANNER_DESCRIPTIONS[i],
+        aiGeneratedText: BANNER_DESCRIPTIONS[i],
+        bannerImage: BANNER_IMAGES[i],
         menu: {
           link: null,
           image: null,
@@ -246,8 +312,8 @@ async function cleanAndCreateRealBanners() {
         campaign: {
           startDate: startDate,
           endDate: endDate,
-          startTime: '09:00',
-          endTime: '23:00',
+          startTime: campaignStartTime,
+          endTime: campaignEndTime,
           daysOfWeek: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
           isActive: true
         },
@@ -262,7 +328,7 @@ async function cleanAndCreateRealBanners() {
           }
         },
         brandProfile: {
-          logo: null,
+          logo: brand.logo,
           description: `${brand.name} - ${brand.brandType}`,
           category: brand.category,
           brandType: brand.brandType,
@@ -296,13 +362,16 @@ async function cleanAndCreateRealBanners() {
 
       await banner.save();
       createdBanners.push(banner);
-      console.log(`  ✅ Banner oluşturuldu: ${REAL_BANNER_TITLES[i]} (${brand.name})`);
+      console.log(`  ✅ Banner oluşturuldu: ${BANNER_TITLES[i]} (${brand.name})`);
+      console.log(`     Açılış: ${campaignStartTime}, Kapanış: ${campaignEndTime}`);
     }
 
     console.log(`\n🎉 İşlem tamamlandı!`);
     console.log(`   - ${deletedCount} test banner silindi`);
-    console.log(`   - ${createdBanners.length} gerçek banner oluşturuldu`);
+    console.log(`   - ${createdBanners.length} banner oluşturuldu`);
     console.log(`   - Tüm banner'lar onaylı durumda ve aktif`);
+    console.log(`   - Banner görselleri ve marka logoları eklendi`);
+    console.log(`   - Açılış-kapanış saatleri kategoriye göre ayarlandı`);
 
     process.exit(0);
   } catch (error) {
