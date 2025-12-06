@@ -180,6 +180,18 @@ router.delete('/:id', async (req, res) => {
 // POST /push-token - FCM/APNs push token kayıt
 router.post('/push-token', async (req, res) => {
   try {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📱 Push token kayıt isteği alındı');
+    console.log('   Request body:', {
+      userId: req.body.userId,
+      phone: req.body.phone,
+      pushToken: req.body.pushToken ? req.body.pushToken.substring(0, 20) + '...' : 'Yok',
+      platform: req.body.platform,
+      type: req.body.type,
+      isExpoToken: req.body.isExpoToken
+    });
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     const { userId, phone, pushToken, platform, type } = req.body;
 
     if (!pushToken) {
@@ -225,12 +237,21 @@ router.post('/push-token', async (req, res) => {
     }
 
     // Token'ı güncelle
+    console.log(`📝 Token güncelleniyor: ${user.name || user.phone}`);
+    console.log(`   Eski token: ${user.pushToken ? user.pushToken.substring(0, 20) + '...' : 'Yok'}`);
+    console.log(`   Yeni token: ${pushToken.substring(0, 20)}...`);
+    
     user.pushToken = pushToken;
     user.pushPlatform = platform || null;
     user.pushTokenType = type || null;
     user.updatedAt = new Date();
 
     await user.save();
+    console.log(`✅ Token kaydedildi: ${user.name || user.phone}`);
+
+    // Token kaydedildikten sonra toplam sayıyı logla
+    const totalUsersWithToken = await User.countDocuments({ pushToken: { $exists: true, $ne: null } });
+    console.log(`📊 Token kaydedildi! Toplam pushToken'ı olan kullanıcı: ${totalUsersWithToken}`);
 
     res.json({
       success: true,
@@ -239,7 +260,8 @@ router.post('/push-token', async (req, res) => {
         userId: user._id,
         pushToken: pushToken.substring(0, 20) + '...', // Güvenlik için kısaltılmış
         platform,
-        type
+        type,
+        totalUsersWithToken // Toplam sayıyı da döndür
       }
     });
   } catch (error) {
