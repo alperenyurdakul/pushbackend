@@ -339,11 +339,18 @@ router.post('/generate-banner', async (req, res) => {
 
     // Kredi kontrolü (sadece brand ve eventBrand için)
     if (user && (user.userType === 'brand' || user.userType === 'eventBrand')) {
+      // Kredi bilgisi yoksa veya null/undefined ise, default olarak 5 kredi ver
+      if (user.credits === undefined || user.credits === null) {
+        user.credits = 5;
+        await user.save();
+        console.log('💳 Kredi bilgisi yoktu, 5 kredi eklendi');
+      }
+      
       if (user.credits <= 0) {
         return res.status(403).json({
           success: false,
           message: 'Krediniz yetersiz! Banner oluşturmak için kredinizi yenilemeniz gerekiyor.',
-          currentCredits: user.credits
+          currentCredits: user.credits || 0
         });
       }
       console.log('💳 Kredi kontrolü geçildi:', {

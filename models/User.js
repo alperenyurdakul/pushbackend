@@ -49,8 +49,8 @@ const userSchema = new mongoose.Schema({
   credits: {
     type: Number,
     default: function() {
-      // Sadece brand ve eventBrand için 10 kredi ver
-      return (this.userType === 'brand' || this.userType === 'eventBrand') ? 10 : 0;
+      // Sadece brand ve eventBrand için 5 kredi ver
+      return (this.userType === 'brand' || this.userType === 'eventBrand') ? 5 : 0;
     }
   },
   phoneVerified: {

@@ -210,6 +210,7 @@ router.post('/register', async (req, res) => {
       longitude: longitude ? parseFloat(longitude) : null, // Boylam (opsiyonel)
       description: description || null, // Marka açıklaması (opsiyonel)
       brandType: brandType || null, // Marka tipi (opsiyonel)
+      credits: (userType === 'brand' || userType === 'eventBrand') ? 5 : 0, // Marka kullanıcıları için 5 kredi
       oneSignalExternalId: phone, // Telefon numarasını External ID olarak kaydet
       restaurant: {
         name: name, // Restaurant adı marka adıyla aynı
@@ -403,6 +404,13 @@ router.post('/login', async (req, res) => {
       { expiresIn: '30d' }
     );
 
+    // Marka kullanıcıları için kredi bilgisi yoksa veya null ise, default olarak 5 kredi ver
+    if ((user.userType === 'brand' || user.userType === 'eventBrand') && (user.credits === undefined || user.credits === null)) {
+      user.credits = 5;
+      await user.save();
+      console.log('💳 Marka kullanıcısı için kredi bilgisi yoktu, 5 kredi eklendi');
+    }
+
     res.json({
       success: true,
       message: 'Giriş başarılı!',
@@ -413,7 +421,7 @@ router.post('/login', async (req, res) => {
           name: user.name,
           userType: user.userType,
           isAdmin: user.isAdmin || false,
-          credits: user.credits || 0,
+          credits: user.credits !== undefined && user.credits !== null ? user.credits : ((user.userType === 'brand' || user.userType === 'eventBrand') ? 5 : 0),
           brandType: user.brandType,
           description: user.description,
           category: user.category,
