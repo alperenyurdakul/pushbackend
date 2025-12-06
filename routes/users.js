@@ -274,5 +274,50 @@ router.post('/push-token', async (req, res) => {
   }
 });
 
+// GET /push-token-status - Push token durumunu kontrol et
+router.get('/push-token-status', async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments({});
+    const usersWithToken = await User.countDocuments({ 
+      pushToken: { $exists: true, $ne: null } 
+    });
+    const usersWithoutToken = totalUsers - usersWithToken;
+    
+    // Son 10 kullanıcıyı kontrol et
+    const recentUsers = await User.find({})
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .select('name phone pushToken pushPlatform pushTokenType createdAt updatedAt');
+    
+    const userDetails = recentUsers.map(user => ({
+      name: user.name,
+      phone: user.phone,
+      hasPushToken: !!user.pushToken,
+      pushToken: user.pushToken ? user.pushToken.substring(0, 20) + '...' : 'Yok',
+      platform: user.pushPlatform || 'Yok',
+      type: user.pushTokenType || 'Yok',
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    }));
+    
+    res.json({
+      success: true,
+      summary: {
+        totalUsers,
+        usersWithToken,
+        usersWithoutToken,
+        percentageWithToken: totalUsers > 0 ? ((usersWithToken / totalUsers) * 100).toFixed(2) + '%' : '0%'
+      },
+      recentUsers: userDetails
+    });
+  } catch (error) {
+    console.error('❌ Push token durum kontrolü hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Push token durumu kontrol edilirken hata oluştu!',
+      error: error.message
+    });
+  }
+});
 
 module.exports = router;
