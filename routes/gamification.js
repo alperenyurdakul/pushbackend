@@ -1,9 +1,29 @@
 const express = require('express');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Banner = require('../models/Banner');
 const Event = require('../models/Event');
-const { authenticateToken } = require('../middleware/auth');
+
+// JWT Secret
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// Authentication middleware
+const authenticateToken = (req, res, next) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Token gerekli' });
+  }
+  
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.userId = decoded.userId;
+    next();
+  } catch (error) {
+    return res.status(401).json({ success: false, message: 'Token geçersiz' });
+  }
+};
 
 // XP kazanma puanları
 const XP_REWARDS = {
