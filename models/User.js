@@ -218,6 +218,65 @@ const userSchema = new mongoose.Schema({
     usedCampaignsCount: { type: Number, default: 0 },
     totalSavings: { type: Number, default: 0 }
   },
+  // Oyunlaştırma Sistemi
+  gamification: {
+    // XP ve Seviye
+    xp: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    level: {
+      type: String,
+      enum: ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond'],
+      default: 'Bronze'
+    },
+    totalXp: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    // Rozetler ve Koleksiyonlar
+    badges: [{
+      badgeId: String,
+      badgeName: String,
+      category: String, // 'city', 'category', 'event', 'special'
+      earnedAt: Date,
+      description: String
+    }],
+    // Günlük Görevler ve Streak
+    dailyTasks: {
+      currentStreak: { type: Number, default: 0 },
+      longestStreak: { type: Number, default: 0 },
+      lastTaskDate: Date,
+      completedTasksToday: [String], // Görev ID'leri
+      totalTasksCompleted: { type: Number, default: 0 }
+    },
+    // Marka Sadakati (her marka için puan)
+    brandLoyalty: [{
+      brandId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      brandName: String,
+      points: { type: Number, default: 0 },
+      visits: { type: Number, default: 0 },
+      lastVisit: Date,
+      rewards: [{
+        rewardId: String,
+        rewardName: String,
+        earnedAt: Date,
+        claimed: { type: Boolean, default: false }
+      }]
+    }],
+    // Koleksiyonlar
+    collections: [{
+      collectionId: String,
+      collectionName: String,
+      category: String, // 'city', 'category', 'event'
+      progress: { type: Number, default: 0 },
+      total: Number,
+      completed: { type: Boolean, default: false },
+      completedAt: Date
+    }]
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -227,6 +286,179 @@ const userSchema = new mongoose.Schema({
     default: Date.now
   }
 });
+
+// Seviye eşikleri (XP gereksinimleri)
+const LEVEL_THRESHOLDS = {
+  Bronze: 0,
+  Silver: 100,
+  Gold: 500,
+  Platinum: 2000,
+  Diamond: 10000
+};
+
+// Seviye avantajları
+const LEVEL_BENEFITS = {
+  Bronze: {
+    name: 'Bronze',
+    color: '#CD7F32',
+    benefits: ['Temel kampanya erişimi']
+  },
+  Silver: {
+    name: 'Silver',
+    color: '#C0C0C0',
+    benefits: ['Temel kampanya erişimi', 'Erken bildirimler']
+  },
+  Gold: {
+    name: 'Gold',
+    color: '#FFD700',
+    benefits: ['Temel kampanya erişimi', 'Erken bildirimler', 'VIP etkinlik erişimi', '%5 ekstra indirim']
+  },
+  Platinum: {
+    name: 'Platinum',
+    color: '#E5E4E2',
+    benefits: ['Temel kampanya erişimi', 'Erken bildirimler', 'VIP etkinlik erişimi', '%10 ekstra indirim', 'Özel rozetler']
+  },
+  Diamond: {
+    name: 'Diamond',
+    color: '#B9F2FF',
+    benefits: ['Temel kampanya erişimi', 'Erken bildirimler', 'VIP etkinlik erişimi', '%15 ekstra indirim', 'Özel rozetler', 'Öncelikli destek', 'Özel etkinlik davetleri']
+  }
+};
+
+// Seviye hesaplama metodu
+userSchema.methods.calculateLevel = function() {
+  const totalXp = this.gamification?.totalXp || 0;
+  
+  if (totalXp >= LEVEL_THRESHOLDS.Diamond) {
+    return 'Diamond';
+  } else if (totalXp >= LEVEL_THRESHOLDS.Platinum) {
+    return 'Platinum';
+  } else if (totalXp >= LEVEL_THRESHOLDS.Gold) {
+    return 'Gold';
+  } else if (totalXp >= LEVEL_THRESHOLDS.Silver) {
+    return 'Silver';
+  } else {
+    return 'Bronze';
+  }
+};
+
+// XP kazanma metodu
+userSchema.methods.addXP = async function(amount, reason = '') {
+  if (!this.gamification) {
+    this.gamification = {
+      xp: 0,
+      level: 'Bronze',
+      totalXp: 0,
+      badges: [],
+      dailyTasks: {
+        currentStreak: 0,
+        longestStreak: 0,
+        completedTasksToday: [],
+        totalTasksCompleted: 0
+      },
+      brandLoyalty: [],
+      collections: []
+    };
+  }
+
+  const oldLevel = this.gamification.level;
+  const oldTotalXp = this.gamification.totalXp || 0;
+  
+  // XP ekle
+  this.gamification.xp = (this.gamification.xp || 0) + amount;
+  this.gamification.totalXp = (this.gamification.totalXp || 0) + amount;
+  
+  // Seviye hesapla
+  const newLevel = this.calculateLevel();
+  this.gamification.level = newLevel;
+  
+  // Seviye atladı mı kontrol et
+  const levelUp = oldLevel !== newLevel;
+  
+  await this.save();
+  
+  return {
+    xpGained: amount,
+    totalXp: this.gamification.totalXp,
+    oldLevel,
+    newLevel,
+    levelUp,
+    reason
+  };
+};
+
+// Seviye bilgisi getirme metodu
+userSchema.methods.getLevelInfo = function() {
+  const level = this.gamification?.level || 'Bronze';
+  const totalXp = this.gamification?.totalXp || 0;
+  const currentLevelThreshold = LEVEL_THRESHOLDS[level];
+  const nextLevel = this.getNextLevel(level);
+  const nextLevelThreshold = nextLevel ? LEVEL_THRESHOLDS[nextLevel] : null;
+  const xpForNextLevel = nextLevelThreshold ? nextLevelThreshold - totalXp : null;
+  const xpInCurrentLevel = totalXp - currentLevelThreshold;
+  const xpNeededForNextLevel = nextLevelThreshold ? nextLevelThreshold - currentLevelThreshold : null;
+  const progress = xpNeededForNextLevel ? (xpInCurrentLevel / xpNeededForNextLevel) * 100 : 100;
+  
+  return {
+    level,
+    totalXp,
+    currentLevelThreshold,
+    nextLevel,
+    nextLevelThreshold,
+    xpForNextLevel,
+    xpInCurrentLevel,
+    xpNeededForNextLevel,
+    progress: Math.min(100, Math.max(0, progress)),
+    benefits: LEVEL_BENEFITS[level]?.benefits || []
+  };
+};
+
+// Sonraki seviyeyi bulma metodu
+userSchema.methods.getNextLevel = function(currentLevel) {
+  const levels = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond'];
+  const currentIndex = levels.indexOf(currentLevel);
+  return currentIndex < levels.length - 1 ? levels[currentIndex + 1] : null;
+};
+
+// Rozet ekleme metodu
+userSchema.methods.addBadge = async function(badgeId, badgeName, category, description = '') {
+  if (!this.gamification) {
+    this.gamification = {
+      xp: 0,
+      level: 'Bronze',
+      totalXp: 0,
+      badges: [],
+      dailyTasks: {
+        currentStreak: 0,
+        longestStreak: 0,
+        completedTasksToday: [],
+        totalTasksCompleted: 0
+      },
+      brandLoyalty: [],
+      collections: []
+    };
+  }
+
+  // Rozet zaten var mı kontrol et
+  const existingBadge = this.gamification.badges.find(b => b.badgeId === badgeId);
+  if (existingBadge) {
+    return { alreadyHas: true, badge: existingBadge };
+  }
+
+  // Yeni rozet ekle
+  const newBadge = {
+    badgeId,
+    badgeName,
+    category,
+    earnedAt: new Date(),
+    description
+  };
+
+  this.gamification.badges.push(newBadge);
+  await this.save();
+
+  return { alreadyHas: false, badge: newBadge };
+};
 
 // Database index'leri (1M+ kullanıcı için performans)
 // Segmentasyon sorgularını hızlandırmak için

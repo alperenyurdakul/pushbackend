@@ -64,6 +64,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/geo', require('./routes/geo'));
+app.use('/api/gamification', require('./routes/gamification'));
 
 console.log('📋 Kayıtlı route\'lar:');
 console.log('  - /api/auth');
