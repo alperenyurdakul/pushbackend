@@ -2361,40 +2361,20 @@ router.get('/friends/compare', authenticateToken, async (req, res) => {
       .lean();
 
     // Karşılaştırma verileri
+    // NOT: Şimdilik haftalık/aylık tracking implemente edilmediği için
+    // tüm periodlar için totalXp kullanılıyor
     let userXP, friendXPList;
 
-    if (period === 'weekly') {
-      userXP = user.friendStats?.weeklyXP || 0;
-      friendXPList = friends.map(f => ({
-        _id: f._id,
-        name: f.name,
-        phone: f.phone,
-        profilePhoto: f.profilePhoto,
-        level: f.gamification?.level || 'Bronze',
-        xp: f.friendStats?.weeklyXP || 0
-      }));
-    } else if (period === 'monthly') {
-      userXP = user.friendStats?.monthlyXP || 0;
-      friendXPList = friends.map(f => ({
-        _id: f._id,
-        name: f.name,
-        phone: f.phone,
-        profilePhoto: f.profilePhoto,
-        level: f.gamification?.level || 'Bronze',
-        xp: f.friendStats?.monthlyXP || 0
-      }));
-    } else {
-      // All time
-      userXP = user.gamification?.totalXp || 0;
-      friendXPList = friends.map(f => ({
-        _id: f._id,
-        name: f.name,
-        phone: f.phone,
-        profilePhoto: f.profilePhoto,
-        level: f.gamification?.level || 'Bronze',
-        xp: f.gamification?.totalXp || 0
-      }));
-    }
+    // Tüm periodlar için totalXp kullan (haftalık/aylık tracking daha sonra eklenecek)
+    userXP = user.gamification?.totalXp || 0;
+    friendXPList = friends.map(f => ({
+      _id: f._id,
+      name: f.name,
+      phone: f.phone,
+      profilePhoto: f.profilePhoto,
+      level: f.gamification?.level || 'Bronze',
+      xp: f.gamification?.totalXp || 0
+    }));
 
     // Sıralama
     friendXPList.sort((a, b) => b.xp - a.xp);
