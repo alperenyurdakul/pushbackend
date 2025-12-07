@@ -1616,6 +1616,41 @@ router.post('/verify-campaign-code', async (req, res) => {
           usedCampaignsCount: user.statistics.usedCampaignsCount,
           totalSavings: user.statistics.totalSavings
         });
+
+        // Koleksiyon ilerlemesini güncelle (arka planda)
+        (async () => {
+          try {
+            const Banner = require('../models/Banner');
+            const banner = await Banner.findById(codeHistory.bannerId).populate('restaurant');
+            
+            if (banner && banner.restaurant) {
+              const { updateCollectionProgress } = require('./gamification');
+              
+              // Şehir bazlı koleksiyonlar
+              const city = banner.restaurant.address?.city || banner.restaurant.city || user.city || user.preferences?.city;
+              if (city) {
+                const cityCollectionId = `${city.toLowerCase().replace('ı', 'i').replace('ş', 's').replace('ğ', 'g').replace('ü', 'u').replace('ö', 'o').replace('ç', 'c')}_best`;
+                await updateCollectionProgress(user._id, cityCollectionId, 1, { city });
+              }
+              
+              // Kategori bazlı koleksiyonlar
+              const category = banner.restaurant.category || banner.category;
+              if (category) {
+                const categoryMap = {
+                  'Kahve': 'coffee_lover',
+                  'Restoran': 'restaurant_explorer',
+                  'Market': 'market_shopper'
+                };
+                const collectionId = categoryMap[category];
+                if (collectionId) {
+                  await updateCollectionProgress(user._id, collectionId, 1, { category });
+                }
+              }
+            }
+          } catch (collectionError) {
+            console.error('❌ Koleksiyon güncelleme hatası:', collectionError);
+          }
+        })();
       }
 
       // Banner bilgisini al

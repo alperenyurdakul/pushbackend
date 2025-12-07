@@ -1446,6 +1446,38 @@ router.post('/verify-customer-code', async (req, res) => {
             usedCampaigns: customerUser.statistics.usedCampaignsCount,
             totalSavings: customerUser.statistics.totalSavings
           });
+
+          // Koleksiyon ilerlemesini güncelle (arka planda)
+          (async () => {
+            try {
+              if (banner && banner.restaurant) {
+                const { updateCollectionProgress } = require('./gamification');
+                
+                // Şehir bazlı koleksiyonlar
+                const city = banner.restaurant.address?.city || banner.restaurant.city || customerUser.city || customerUser.preferences?.city;
+                if (city) {
+                  const cityCollectionId = `${city.toLowerCase().replace('ı', 'i').replace('ş', 's').replace('ğ', 'g').replace('ü', 'u').replace('ö', 'o').replace('ç', 'c')}_best`;
+                  await updateCollectionProgress(customerUser._id, cityCollectionId, 1, { city });
+                }
+                
+                // Kategori bazlı koleksiyonlar
+                const category = banner.restaurant.category || banner.category;
+                if (category) {
+                  const categoryMap = {
+                    'Kahve': 'coffee_lover',
+                    'Restoran': 'restaurant_explorer',
+                    'Market': 'market_shopper'
+                  };
+                  const collectionId = categoryMap[category];
+                  if (collectionId) {
+                    await updateCollectionProgress(customerUser._id, collectionId, 1, { category });
+                  }
+                }
+              }
+            } catch (collectionError) {
+              console.error('❌ Koleksiyon güncelleme hatası:', collectionError);
+            }
+          })();
           
           // OneSignal bildirimi gönder
           if (customerUser.oneSignalExternalId) {

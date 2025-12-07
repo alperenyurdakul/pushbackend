@@ -1314,6 +1314,111 @@ router.post('/update-collection', authenticateToken, async (req, res) => {
 });
 
 /**
+ * Helper: Koleksiyon ilerlemesini otomatik güncelle (internal)
+ */
+async function updateCollectionProgress(userId, collectionId, increment = 1, metadata = {}) {
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      console.log('⚠️ Koleksiyon güncelleme: Kullanıcı bulunamadı');
+      return;
+    }
+
+    const collection = COLLECTIONS[collectionId];
+    if (!collection) {
+      console.log('⚠️ Koleksiyon güncelleme: Koleksiyon bulunamadı:', collectionId);
+      return;
+    }
+
+    // Gamification yoksa başlat
+    if (!user.gamification) {
+      user.gamification = {
+        xp: 0,
+        level: 'Bronze',
+        totalXp: 0,
+        badges: [],
+        dailyTasks: {
+          currentStreak: 0,
+          longestStreak: 0,
+          completedTasksToday: [],
+          totalTasksCompleted: 0,
+          sharesToday: []
+        },
+        brandLoyalty: [],
+        collections: []
+      };
+    }
+
+    let userCollection = user.gamification.collections.find(c => c.collectionId === collectionId);
+    
+    if (!userCollection) {
+      userCollection = {
+        collectionId: collection.id,
+        collectionName: collection.name,
+        category: collection.category,
+        progress: 0,
+        total: collection.target,
+        completed: false
+      };
+      user.gamification.collections.push(userCollection);
+    }
+
+    // Zaten tamamlanmış mı?
+    if (userCollection.completed) {
+      return;
+    }
+
+    // İlerleme kontrolü (koleksiyon tipine göre)
+    let shouldIncrement = false;
+
+    if (collection.category === 'city') {
+      if (metadata.city === collection.city) {
+        shouldIncrement = true;
+      }
+    } else if (collection.category === 'category') {
+      if (metadata.category === collection.campaignCategory) {
+        shouldIncrement = true;
+      }
+    } else if (collection.category === 'event') {
+      if (metadata.eventCategory === collection.eventCategory) {
+        shouldIncrement = true;
+      }
+    }
+
+    if (!shouldIncrement) {
+      return;
+    }
+
+    // İlerlemeyi artır
+    userCollection.progress = (userCollection.progress || 0) + increment;
+
+    // Tamamlandı mı?
+    if (userCollection.progress >= collection.target) {
+      userCollection.completed = true;
+      userCollection.completedAt = new Date();
+      
+      // Ödül ver (XP + rozet)
+      await user.addXP(collection.xpReward, `Koleksiyon tamamlandı: ${collection.name}`);
+      
+      if (collection.badgeReward) {
+        await user.addBadge(
+          collection.badgeReward,
+          collection.name,
+          'collection',
+          `${collection.name} koleksiyonunu tamamladınız!`
+        );
+      }
+
+      console.log(`🎉 Koleksiyon tamamlandı: ${collection.name} (${collection.xpReward} XP + rozet)`);
+    }
+
+    await user.save();
+  } catch (error) {
+    console.error('❌ Koleksiyon güncelleme hatası:', error);
+  }
+}
+
+/**
  * Marka sadakati puanı ekleme helper fonksiyonu
  */
 async function addBrandLoyaltyPoints(user, brandId, brandName, points) {
@@ -1364,5 +1469,138 @@ async function addBrandLoyaltyPoints(user, brandId, brandName, points) {
   return brandLoyalty;
 }
 
+/**
+ * Liderlik tablosu getir
+ * GET /api/gamification/leaderboard
+ */
+router.get('/leaderboard', authenticateToken, async (req, res) => {
+  try {
+    const { period = 'weekly', city, category, limit = 100 } = req.query;
+    const userId = req.userId;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı!'
+      });
+    }
+
+    // Tarih aralığını hesapla
+    const now = new Date();
+    let startDate;
+    
+    if (period === 'weekly') {
+      startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - 7);
+    } else if (period === 'monthly') {
+      startDate = new Date(now);
+      startDate.setMonth(startDate.getMonth() - 1);
+    } else {
+      // All time
+      startDate = new Date(0);
+    }
+
+    // Kullanıcıları filtrele
+    let query = {
+      userType: 'user', // Sadece normal kullanıcılar
+      'gamification.totalXp': { $exists: true }
+    };
+
+    // Şehir filtresi
+    if (city) {
+      query.$or = [
+        { city: city },
+        { 'preferences.city': city }
+      ];
+    }
+
+    // Kullanıcıları getir ve sırala
+    let users = await User.find(query)
+      .select('name profilePhoto city preferences gamification statistics')
+      .lean();
+
+    // XP'ye göre sırala ve filtrele
+    users = users
+      .map(u => ({
+        _id: u._id,
+        name: u.name,
+        profilePhoto: u.profilePhoto,
+        city: u.city || u.preferences?.city,
+        totalXp: u.gamification?.totalXp || 0,
+        level: u.gamification?.level || 'Bronze',
+        attendedEvents: u.statistics?.attendedEventsCount || 0,
+        usedCampaigns: u.statistics?.usedCampaignsCount || 0,
+        totalSavings: u.statistics?.totalSavings || 0
+      }))
+      .filter(u => u.totalXp > 0)
+      .sort((a, b) => b.totalXp - a.totalXp)
+      .slice(0, parseInt(limit));
+
+    // Kullanıcının kendi sıralamasını bul
+    const userRank = users.findIndex(u => u._id.toString() === userId.toString()) + 1;
+    const userData = users.find(u => u._id.toString() === userId.toString());
+
+    // Kategori bazlı sıralama (opsiyonel)
+    let categoryLeaderboard = null;
+    if (category) {
+      // Kategori bazlı koleksiyon ilerlemesine göre sıralama
+      const categoryUsers = await User.find({
+        userType: 'user',
+        'gamification.collections': {
+          $elemMatch: {
+            collectionId: category,
+            progress: { $gt: 0 }
+          }
+        }
+      })
+        .select('name profilePhoto gamification')
+        .lean();
+
+      categoryLeaderboard = categoryUsers
+        .map(u => {
+          const collection = u.gamification?.collections?.find(c => c.collectionId === category);
+          return {
+            _id: u._id,
+            name: u.name,
+            profilePhoto: u.profilePhoto,
+            progress: collection?.progress || 0,
+            completed: collection?.completed || false
+          };
+        })
+        .sort((a, b) => {
+          if (a.completed && !b.completed) return -1;
+          if (!a.completed && b.completed) return 1;
+          return b.progress - a.progress;
+        })
+        .slice(0, parseInt(limit));
+    }
+
+    res.json({
+      success: true,
+      data: {
+        leaderboard: users.map((u, index) => ({
+          ...u,
+          rank: index + 1
+        })),
+        userRank: userRank > 0 ? userRank : null,
+        userData: userData || null,
+        period,
+        city: city || null,
+        category: category || null,
+        categoryLeaderboard: categoryLeaderboard
+      }
+    });
+  } catch (error) {
+    console.error('Liderlik tablosu hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Liderlik tablosu alınırken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
+module.exports.updateCollectionProgress = updateCollectionProgress;
 

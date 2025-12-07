@@ -511,6 +511,30 @@ router.post('/:id/qr-verify', authenticateToken, async (req, res) => {
     
     // Kullanıcının istatistiklerini güncelle
     const participantUserId = participant.userId?._id || participant.userId;
+    
+    // Koleksiyon ilerlemesini güncelle (arka planda)
+    (async () => {
+      try {
+        const { updateCollectionProgress } = require('./gamification');
+        
+        // Etkinlik kategorisine göre koleksiyon güncelle
+        const eventCategory = event.category;
+        if (eventCategory) {
+          const categoryMap = {
+            'Konser': 'event_lover',
+            'Sosyal Buluşma': 'social_butterfly',
+            'Çocuk Atölyesi': 'workshop_enthusiast'
+          };
+          const collectionId = categoryMap[eventCategory];
+          if (collectionId) {
+            await updateCollectionProgress(participantUserId, collectionId, 1, { eventCategory });
+          }
+        }
+      } catch (collectionError) {
+        console.error('❌ Koleksiyon güncelleme hatası:', collectionError);
+      }
+    })();
+    
     if (participantUserId) {
       const participantUser = await User.findById(participantUserId);
       if (participantUser) {
