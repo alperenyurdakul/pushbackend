@@ -906,9 +906,12 @@ async function canCompleteTask(user, task) {
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   try {
+    console.log(`🔍 Görev doğrulama: ${task.id} (${task.type})`);
+    
     switch (task.type) {
       case 'checkin':
         // Check-in görevi için özel endpoint kullanılmalı
+        console.log('❌ Check-in görevi bu endpoint\'ten tamamlanamaz');
         return false; // Check-in için özel endpoint var, buradan tamamlanamaz
       
       case 'discover':
@@ -922,7 +925,10 @@ async function canCompleteTask(user, task) {
           createdAt: { $gte: today, $lt: tomorrow }
         }).distinct('bannerId');
         
+        console.log(`📊 Bugün oluşturulan kod sayısı: ${todayCodeBannerIds.length}`);
+        
         if (todayCodeBannerIds.length === 0) {
+          console.log('❌ Bugün hiç kod oluşturulmamış');
           return false;
         }
         
@@ -935,7 +941,13 @@ async function canCompleteTask(user, task) {
         const uniqueRestaurantIds = [...new Set(banners.map(b => b.restaurant?.toString()).filter(Boolean))];
         const uniqueBrandsToday = uniqueRestaurantIds.length;
         
-        return uniqueBrandsToday >= (task.target || 2);
+        console.log(`📊 Farklı marka sayısı: ${uniqueBrandsToday} / ${task.target || 2}`);
+        
+        const canComplete = uniqueBrandsToday >= (task.target || 2);
+        if (!canComplete) {
+          console.log(`❌ Yeterli marka keşfedilmemiş: ${uniqueBrandsToday} < ${task.target || 2}`);
+        }
+        return canComplete;
       
       case 'event':
         // Bugün katıldığı etkinlik sayısını kontrol et
@@ -946,7 +958,13 @@ async function canCompleteTask(user, task) {
           'participants.appliedAt': { $gte: today, $lt: tomorrow }
         }).countDocuments();
         
-        return todayEvents >= 1;
+        console.log(`📊 Bugün katıldığı etkinlik sayısı: ${todayEvents}`);
+        
+        const canCompleteEvent = todayEvents >= 1;
+        if (!canCompleteEvent) {
+          console.log('❌ Bugün hiç etkinliğe katılmamış');
+        }
+        return canCompleteEvent;
       
       case 'campaign':
         // Bugün kullanılan kampanya sayısını kontrol et
@@ -957,18 +975,27 @@ async function canCompleteTask(user, task) {
           usedAt: { $gte: today, $lt: tomorrow }
         }).countDocuments();
         
-        return todayUsedCampaigns >= 1;
+        console.log(`📊 Bugün kullanılan kampanya sayısı: ${todayUsedCampaigns}`);
+        
+        const canCompleteCampaign = todayUsedCampaigns >= 1;
+        if (!canCompleteCampaign) {
+          console.log('❌ Bugün hiç kampanya kullanılmamış');
+        }
+        return canCompleteCampaign;
       
       case 'share':
         // Kampanya paylaşımı için şimdilik false döndür
         // Paylaşım tracking mekanizması eklendiğinde buraya eklenecek
+        console.log('❌ Paylaşım tracking henüz implement edilmemiş');
         return false;
       
       default:
+        console.log(`❌ Bilinmeyen görev tipi: ${task.type}`);
         return false;
     }
   } catch (error) {
-    console.error('Görev doğrulama hatası:', error);
+    console.error('❌ Görev doğrulama hatası:', error);
+    console.error('Error stack:', error.stack);
     return false;
   }
 }
