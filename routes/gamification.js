@@ -92,6 +92,121 @@ const STREAK_BONUSES = {
   30: { xpMultiplier: 3.0, badge: 'streak_30' }
 };
 
+// Koleksiyon tanımları
+const COLLECTIONS = {
+  // Şehir bazlı koleksiyonlar
+  'samsun_best': {
+    id: 'samsun_best',
+    name: "Samsun'un En İyileri",
+    description: 'Samsun\'da 10 farklı restoran/markayı ziyaret et',
+    category: 'city',
+    city: 'Samsun',
+    target: 10,
+    xpReward: 200,
+    badgeReward: 'samsun_explorer',
+    icon: 'location',
+    color: '#FF6B6B'
+  },
+  'istanbul_best': {
+    id: 'istanbul_best',
+    name: "İstanbul'un En İyileri",
+    description: 'İstanbul\'da 10 farklı restoran/markayı ziyaret et',
+    category: 'city',
+    city: 'İstanbul',
+    target: 10,
+    xpReward: 200,
+    badgeReward: 'istanbul_explorer',
+    icon: 'location',
+    color: '#4ECDC4'
+  },
+  'ankara_best': {
+    id: 'ankara_best',
+    name: "Ankara'nın En İyileri",
+    description: 'Ankara\'da 10 farklı restoran/markayı ziyaret et',
+    category: 'city',
+    city: 'Ankara',
+    target: 10,
+    xpReward: 200,
+    badgeReward: 'ankara_explorer',
+    icon: 'location',
+    color: '#95E1D3'
+  },
+  // Kategori bazlı koleksiyonlar
+  'coffee_lover': {
+    id: 'coffee_lover',
+    name: 'Kahve Tutkunu',
+    description: '10 farklı kahve mekanını ziyaret et',
+    category: 'category',
+    campaignCategory: 'Kahve',
+    target: 10,
+    xpReward: 150,
+    badgeReward: 'coffee_master',
+    icon: 'cafe',
+    color: '#8B4513'
+  },
+  'restaurant_explorer': {
+    id: 'restaurant_explorer',
+    name: 'Restoran Kaşifi',
+    description: '10 farklı restoranı ziyaret et',
+    category: 'category',
+    campaignCategory: 'Restoran',
+    target: 10,
+    xpReward: 150,
+    badgeReward: 'restaurant_master',
+    icon: 'restaurant',
+    color: '#FF6347'
+  },
+  'market_shopper': {
+    id: 'market_shopper',
+    name: 'Market Alışverişçisi',
+    description: '10 farklı marketi ziyaret et',
+    category: 'category',
+    campaignCategory: 'Market',
+    target: 10,
+    xpReward: 150,
+    badgeReward: 'market_master',
+    icon: 'storefront',
+    color: '#32CD32'
+  },
+  // Etkinlik koleksiyonları
+  'event_lover': {
+    id: 'event_lover',
+    name: 'Etkinlik Tutkunu',
+    description: '5 farklı konser/tiyatroya katıl',
+    category: 'event',
+    eventCategory: 'Konser',
+    target: 5,
+    xpReward: 250,
+    badgeReward: 'event_master',
+    icon: 'musical-notes',
+    color: '#9B59B6'
+  },
+  'social_butterfly': {
+    id: 'social_butterfly',
+    name: 'Sosyal Kelebek',
+    description: '5 farklı sosyal etkinliğe katıl',
+    category: 'event',
+    eventCategory: 'Sosyal Buluşma',
+    target: 5,
+    xpReward: 200,
+    badgeReward: 'social_master',
+    icon: 'people',
+    color: '#FFB347'
+  },
+  'workshop_enthusiast': {
+    id: 'workshop_enthusiast',
+    name: 'Atölye Meraklısı',
+    description: '5 farklı atölyeye katıl',
+    category: 'event',
+    eventCategory: 'Çocuk Atölyesi',
+    target: 5,
+    xpReward: 200,
+    badgeReward: 'workshop_master',
+    icon: 'construct',
+    color: '#FF69B4'
+  }
+};
+
 /**
  * XP kazanma endpoint'i
  * POST /api/gamification/add-xp
@@ -718,6 +833,285 @@ function getNextStreakMilestone(currentStreak) {
   }
   return null;
 }
+
+/**
+ * Koleksiyonları getir
+ * GET /api/gamification/collections
+ */
+router.get('/collections', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.userId;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı!'
+      });
+    }
+
+    // Gamification yoksa başlat
+    if (!user.gamification) {
+      user.gamification = {
+        xp: 0,
+        level: 'Bronze',
+        totalXp: 0,
+        badges: [],
+        dailyTasks: {
+          currentStreak: 0,
+          longestStreak: 0,
+          completedTasksToday: [],
+          totalTasksCompleted: 0
+        },
+        brandLoyalty: [],
+        collections: []
+      };
+      await user.save();
+    }
+
+    const userCollections = user.gamification.collections || [];
+    const userCity = user.city || user.preferences?.city || 'Samsun';
+
+    // Koleksiyonları hazırla
+    const collections = Object.values(COLLECTIONS).map(collection => {
+      // Kullanıcının bu koleksiyonu var mı?
+      const userCollection = userCollections.find(c => c.collectionId === collection.id);
+      
+      let progress = 0;
+      let completed = false;
+      let completedAt = null;
+
+      if (userCollection) {
+        progress = userCollection.progress || 0;
+        completed = userCollection.completed || false;
+        completedAt = userCollection.completedAt || null;
+      }
+
+      // Şehir bazlı koleksiyonları filtrele (sadece kullanıcının şehrindekileri göster)
+      if (collection.category === 'city' && collection.city !== userCity) {
+        return null; // Bu koleksiyonu gösterme
+      }
+
+      return {
+        ...collection,
+        progress,
+        completed,
+        completedAt,
+        percentage: collection.target > 0 ? Math.min(100, Math.round((progress / collection.target) * 100)) : 0,
+        remaining: Math.max(0, collection.target - progress)
+      };
+    }).filter(c => c !== null); // null olanları filtrele
+
+    // Kategorilere göre grupla
+    const groupedCollections = {
+      city: collections.filter(c => c.category === 'city'),
+      category: collections.filter(c => c.category === 'category'),
+      event: collections.filter(c => c.category === 'event')
+    };
+
+    res.json({
+      success: true,
+      data: {
+        collections,
+        grouped: groupedCollections,
+        stats: {
+          total: collections.length,
+          completed: collections.filter(c => c.completed).length,
+          inProgress: collections.filter(c => !c.completed && c.progress > 0).length,
+          notStarted: collections.filter(c => !c.completed && c.progress === 0).length
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Koleksiyonlar hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Koleksiyonlar alınırken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Koleksiyon ilerlemesini güncelle
+ * POST /api/gamification/update-collection
+ */
+router.post('/update-collection', authenticateToken, async (req, res) => {
+  try {
+    const { collectionId, increment = 1, brandId, eventId, city, category } = req.body;
+    const userId = req.userId;
+
+    if (!collectionId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Koleksiyon ID gerekli!'
+      });
+    }
+
+    const collection = COLLECTIONS[collectionId];
+    if (!collection) {
+      return res.status(404).json({
+        success: false,
+        message: 'Koleksiyon bulunamadı!'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı!'
+      });
+    }
+
+    // Gamification yoksa başlat
+    if (!user.gamification) {
+      user.gamification = {
+        xp: 0,
+        level: 'Bronze',
+        totalXp: 0,
+        badges: [],
+        dailyTasks: {
+          currentStreak: 0,
+          longestStreak: 0,
+          completedTasksToday: [],
+          totalTasksCompleted: 0
+        },
+        brandLoyalty: [],
+        collections: []
+      };
+    }
+
+    // Koleksiyon kontrolü
+    let userCollection = user.gamification.collections.find(c => c.collectionId === collectionId);
+    
+    if (!userCollection) {
+      // Yeni koleksiyon başlat
+      userCollection = {
+        collectionId: collection.id,
+        collectionName: collection.name,
+        category: collection.category,
+        progress: 0,
+        total: collection.target,
+        completed: false
+      };
+      user.gamification.collections.push(userCollection);
+    }
+
+    // Zaten tamamlanmış mı?
+    if (userCollection.completed) {
+      return res.json({
+        success: true,
+        message: 'Bu koleksiyon zaten tamamlanmış!',
+        data: {
+          collection: {
+            ...collection,
+            progress: userCollection.progress,
+            completed: true
+          }
+        }
+      });
+    }
+
+    // İlerleme kontrolü (koleksiyon tipine göre)
+    let shouldIncrement = false;
+
+    if (collection.category === 'city') {
+      // Şehir bazlı: sadece belirtilen şehirdeki markalar için
+      if (city === collection.city) {
+        shouldIncrement = true;
+      }
+    } else if (collection.category === 'category') {
+      // Kategori bazlı: sadece belirtilen kategorideki markalar için
+      if (category === collection.campaignCategory) {
+        shouldIncrement = true;
+      }
+    } else if (collection.category === 'event') {
+      // Etkinlik bazlı: sadece belirtilen kategorideki etkinlikler için
+      if (category === collection.eventCategory) {
+        shouldIncrement = true;
+      }
+    }
+
+    if (!shouldIncrement) {
+      return res.json({
+        success: true,
+        message: 'Bu işlem bu koleksiyon için geçerli değil',
+        data: {
+          collection: {
+            ...collection,
+            progress: userCollection.progress,
+            completed: false
+          }
+        }
+      });
+    }
+
+    // İlerlemeyi artır
+    userCollection.progress = (userCollection.progress || 0) + increment;
+
+    // Tamamlandı mı?
+    if (userCollection.progress >= collection.target) {
+      userCollection.completed = true;
+      userCollection.completedAt = new Date();
+      
+      // Ödül ver (XP + rozet)
+      await user.addXP(collection.xpReward, `Koleksiyon tamamlandı: ${collection.name}`);
+      
+      if (collection.badgeReward) {
+        await user.addBadge(
+          collection.badgeReward,
+          collection.name,
+          'collection',
+          `${collection.name} koleksiyonunu tamamladınız!`
+        );
+      }
+
+      await user.save();
+
+      return res.json({
+        success: true,
+        message: `🎉 Koleksiyon tamamlandı! ${collection.xpReward} XP ve rozet kazandınız!`,
+        data: {
+          collection: {
+            ...collection,
+            progress: userCollection.progress,
+            completed: true,
+            completedAt: userCollection.completedAt
+          },
+          reward: {
+            xp: collection.xpReward,
+            badge: collection.badgeReward
+          },
+          levelInfo: user.getLevelInfo()
+        }
+      });
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `Koleksiyon ilerlemesi güncellendi! (${userCollection.progress}/${collection.target})`,
+      data: {
+        collection: {
+          ...collection,
+          progress: userCollection.progress,
+          completed: false,
+          percentage: Math.round((userCollection.progress / collection.target) * 100),
+          remaining: collection.target - userCollection.progress
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Koleksiyon güncelleme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Koleksiyon güncellenirken hata oluştu!',
+      error: error.message
+    });
+  }
+});
 
 /**
  * Marka sadakati puanı ekleme helper fonksiyonu
