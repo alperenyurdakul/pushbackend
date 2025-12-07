@@ -1907,10 +1907,19 @@ router.get('/friends/search', authenticateToken, async (req, res) => {
       });
     }
 
-    const friendIds = user.friends?.map(f => f.friendId.toString()) || [];
+    const friendIds = user.friends?.map(f => f.friendId?.toString() || f.friendId) || [];
     friendIds.push(userId.toString());
 
-    searchQuery._id = { $nin: friendIds.map(id => mongoose.Types.ObjectId(id)) };
+    // ObjectId'leri düzgün şekilde filtrele
+    const excludeIds = friendIds.map(id => {
+      try {
+        return mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id;
+      } catch (e) {
+        return id;
+      }
+    });
+
+    searchQuery._id = { $nin: excludeIds };
     searchQuery.userType = 'user'; // Sadece normal kullanıcılar
 
     const results = await User.find(searchQuery)
