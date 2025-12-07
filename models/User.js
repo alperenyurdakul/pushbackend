@@ -250,7 +250,11 @@ const userSchema = new mongoose.Schema({
       longestStreak: { type: Number, default: 0 },
       lastTaskDate: Date,
       completedTasksToday: [String], // Görev ID'leri
-      totalTasksCompleted: { type: Number, default: 0 }
+      totalTasksCompleted: { type: Number, default: 0 },
+      sharesToday: [{ // Bugün yapılan paylaşımlar
+        bannerId: mongoose.Schema.Types.ObjectId,
+        sharedAt: { type: Date, default: Date.now }
+      }]
     },
     // Marka Sadakati (her marka için puan)
     brandLoyalty: [{

@@ -532,6 +532,16 @@ router.get('/daily-tasks', authenticateToken, async (req, res) => {
               
               progress = todayUsedCampaigns;
               progressText = progress >= 1 ? 'Tamamlandı' : 'Bekliyor';
+            } else if (task.type === 'share') {
+              const sharesToday = user.gamification?.dailyTasks?.sharesToday || [];
+              const todayShares = sharesToday.filter(share => {
+                const shareDate = new Date(share.sharedAt);
+                shareDate.setHours(0, 0, 0, 0);
+                return shareDate.getTime() === today.getTime();
+              });
+              
+              progress = todayShares.length;
+              progressText = progress >= 1 ? 'Tamamlandı' : 'Bekliyor';
             } else {
               progressText = 'Bekliyor';
             }
@@ -984,10 +994,21 @@ async function canCompleteTask(user, task) {
         return canCompleteCampaign;
       
       case 'share':
-        // Kampanya paylaşımı için şimdilik false döndür
-        // Paylaşım tracking mekanizması eklendiğinde buraya eklenecek
-        console.log('❌ Paylaşım tracking henüz implement edilmemiş');
-        return false;
+        // Bugün yapılan paylaşım sayısını kontrol et
+        const sharesToday = user.gamification?.dailyTasks?.sharesToday || [];
+        const todayShares = sharesToday.filter(share => {
+          const shareDate = new Date(share.sharedAt);
+          shareDate.setHours(0, 0, 0, 0);
+          return shareDate.getTime() === today.getTime();
+        });
+        
+        console.log(`📊 Bugün yapılan paylaşım sayısı: ${todayShares.length}`);
+        
+        const canCompleteShare = todayShares.length >= 1;
+        if (!canCompleteShare) {
+          console.log('❌ Bugün hiç kampanya paylaşılmamış');
+        }
+        return canCompleteShare;
       
       default:
         console.log(`❌ Bilinmeyen görev tipi: ${task.type}`);
