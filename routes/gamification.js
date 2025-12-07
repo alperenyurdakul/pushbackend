@@ -1920,7 +1920,7 @@ router.get('/friends/search', authenticateToken, async (req, res) => {
     });
 
     searchQuery._id = { $nin: excludeIds };
-    searchQuery.userType = 'user'; // Sadece normal kullanıcılar
+    searchQuery.userType = 'customer'; // Sadece normal kullanıcılar
 
     const results = await User.find(searchQuery)
       .select('name phone profilePhoto gamification.level gamification.totalXp')
