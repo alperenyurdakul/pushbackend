@@ -178,8 +178,8 @@ router.post('/banners/:id/approve', adminAuth, async (req, res) => {
       // contentType'a göre bildirim başlığını belirle
       const notificationTitle = banner.contentType === 'event' ? '🎪 Yeni Etkinlik!' : '🎉 Yeni Kampanya!';
       
-      // Batch notification sistemine ekle ve anında gönder
-      const { addNotificationToBatch, triggerBatchManually } = require('../services/notificationQueueService');
+      // Batch notification sistemine ekle (15 dakika sonra toplu gönderilecek)
+      const { addNotificationToBatch } = require('../services/notificationQueueService');
       
       addNotificationToBatch({
         type: banner.contentType === 'event' ? 'event' : 'campaign',
@@ -198,15 +198,7 @@ router.post('/banners/:id/approve', adminAuth, async (req, res) => {
         }
       });
       
-      console.log('✅ Bildirim batch\'e eklendi');
-      
-      // Anında gönderim (15 dakika beklemek yerine)
-      try {
-        await triggerBatchManually();
-        console.log('✅ Bildirim anında gönderildi');
-      } catch (triggerError) {
-        console.error('⚠️ Anında gönderim hatası (15 dakika sonra otomatik gönderilecek):', triggerError.message);
-      }
+      console.log('✅ Bildirim batch\'e eklendi (15 dakika sonra toplu gönderilecek)');
     } catch (notificationError) {
       console.error('❌ Batch notification ekleme hatası:', notificationError);
       // Hata olsa bile banner onayı başarılı olarak işaretlenmiş olsun
