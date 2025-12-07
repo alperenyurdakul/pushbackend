@@ -1630,7 +1630,7 @@ router.get('/leaderboard', authenticateToken, async (req, res) => {
 
     // Kullanıcıları filtrele
     let query = {
-      userType: 'user', // Sadece normal kullanıcılar
+      userType: 'customer', // Sadece normal kullanıcılar
       'gamification.totalXp': { $exists: true }
     };
 
@@ -1647,7 +1647,7 @@ router.get('/leaderboard', authenticateToken, async (req, res) => {
       .select('name profilePhoto city preferences gamification statistics')
       .lean();
 
-    // XP'ye göre sırala ve filtrele
+    // XP'ye göre sırala (0 XP olanlar da görünsün)
     users = users
       .map(u => ({
         _id: u._id,
@@ -1660,7 +1660,6 @@ router.get('/leaderboard', authenticateToken, async (req, res) => {
         usedCampaigns: u.statistics?.usedCampaignsCount || 0,
         totalSavings: u.statistics?.totalSavings || 0
       }))
-      .filter(u => u.totalXp > 0)
       .sort((a, b) => b.totalXp - a.totalXp)
       .slice(0, parseInt(limit));
 
@@ -1673,7 +1672,7 @@ router.get('/leaderboard', authenticateToken, async (req, res) => {
     if (category) {
       // Kategori bazlı koleksiyon ilerlemesine göre sıralama
       const categoryUsers = await User.find({
-        userType: 'user',
+        userType: 'customer',
         'gamification.collections': {
           $elemMatch: {
             collectionId: category,
