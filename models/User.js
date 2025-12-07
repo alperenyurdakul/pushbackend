@@ -218,6 +218,29 @@ const userSchema = new mongoose.Schema({
     usedCampaignsCount: { type: Number, default: 0 },
     totalSavings: { type: Number, default: 0 }
   },
+  // Arkadaş Sistemi
+  friends: [{
+    friendId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    addedAt: { type: Date, default: Date.now },
+    nickname: String // Kullanıcının arkadaşına verdiği özel isim
+  }],
+  friendRequests: {
+    sent: [{
+      toUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+      sentAt: { type: Date, default: Date.now }
+    }],
+    received: [{
+      fromUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+      receivedAt: { type: Date, default: Date.now }
+    }]
+  },
+  friendStats: {
+    totalFriends: { type: Number, default: 0 },
+    weeklyXP: { type: Number, default: 0 }, // Bu hafta kazanılan XP
+    monthlyXP: { type: Number, default: 0 }, // Bu ay kazanılan XP
+    lastWeeklyReset: Date, // Son haftalık reset tarihi
+    lastMonthlyReset: Date // Son aylık reset tarihi
+  },
   // Oyunlaştırma Sistemi
   gamification: {
     // XP ve Seviye
@@ -254,7 +277,8 @@ const userSchema = new mongoose.Schema({
       sharesToday: [{ // Bugün yapılan paylaşımlar
         bannerId: mongoose.Schema.Types.ObjectId,
         sharedAt: { type: Date, default: Date.now }
-      }]
+      }],
+      lastSurpriseBoxDate: Date // Son sürpriz kutusu açılma tarihi
     },
     // Marka Sadakati (her marka için puan)
     brandLoyalty: [{

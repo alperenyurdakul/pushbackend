@@ -1410,6 +1410,26 @@ router.post('/verify-customer-code', async (req, res) => {
       billAmount: codeRecord.billAmount
     });
 
+    // Sürpriz kutusu ödülünü önce hesapla (response'a eklemek için)
+    // NOT: Sürpriz kutusu artık kontrollü açılıyor (%25 şans + günlük limit)
+    let surpriseReward = null;
+    try {
+      const customerUser = await User.findById(codeRecord.userId._id);
+      if (customerUser) {
+        const { openSurpriseBox } = require('./gamification');
+        const surpriseResult = await openSurpriseBox(customerUser._id, null, bannerObjectId);
+        if (surpriseResult.success && surpriseResult.canOpen) {
+          surpriseReward = surpriseResult.data?.reward || null;
+          console.log('🎁 Sürpriz kutusu açıldı ve ödül verildi:', surpriseReward);
+        } else {
+          console.log('ℹ️ Sürpriz kutusu açılamadı:', surpriseResult.message || 'Şans bu sefer yanınızda değildi');
+        }
+      }
+    } catch (surpriseError) {
+      console.error('❌ Sürpriz kutusu hatası:', surpriseError);
+      // Hata olsa bile kod doğrulama devam etsin
+    }
+
     // Response'u hemen gönder, bildirim ve istatistikleri arka planda güncelle
     res.json({
       success: true,
@@ -1422,7 +1442,8 @@ router.post('/verify-customer-code', async (req, res) => {
         usedAt: now,
         billAmount: codeRecord.billAmount,
         offerType: banner.offerType,
-        offerDetails: banner.offerDetails
+        offerDetails: banner.offerDetails,
+        surpriseReward: surpriseReward // Frontend için sürpriz kutusu ödülü
       }
     });
 
@@ -1447,7 +1468,7 @@ router.post('/verify-customer-code', async (req, res) => {
             totalSavings: customerUser.statistics.totalSavings
           });
 
-          // Koleksiyon ilerlemesini güncelle (arka planda)
+          // Koleksiyon ilerlemesini güncelle ve sürpriz kutusu aç (arka planda)
           (async () => {
             try {
               if (banner && banner.restaurant) {
@@ -1473,6 +1494,7 @@ router.post('/verify-customer-code', async (req, res) => {
                     await updateCollectionProgress(customerUser._id, collectionId, 1, { category });
                   }
                 }
+
               }
             } catch (collectionError) {
               console.error('❌ Koleksiyon güncelleme hatası:', collectionError);
@@ -1493,10 +1515,14 @@ router.post('/verify-customer-code', async (req, res) => {
                 type: 'code_verified',
                 bannerId: bannerObjectId.toString(),
                 billAmount: billAmount,
-                bannerTitle: banner.title
+                bannerTitle: banner.title,
+                surpriseReward: surpriseReward // Sürpriz kutusu ödülü
               }
             );
             console.log('✅ OneSignal bildirimi gönderildi:', customerUser.phone);
+            if (surpriseReward) {
+              console.log('🎁 Sürpriz kutusu ödülü bildirime eklendi:', surpriseReward);
+            }
           } else {
             console.log('⚠️ Kullanıcı OneSignal ID bulunamadı:', codeRecord.userId.phone);
           }

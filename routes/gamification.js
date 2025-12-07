@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Banner = require('../models/Banner');
 const Event = require('../models/Event');
@@ -91,6 +92,132 @@ const STREAK_BONUSES = {
   14: { xpMultiplier: 2.5, badge: 'streak_14' },
   30: { xpMultiplier: 3.0, badge: 'streak_30' }
 };
+
+// Sürpriz Kutusu ödül tanımları (daha dengeli ve nadir)
+const SURPRISE_BOX_REWARDS = {
+  normal: {
+    probability: 0.85, // %85 şans
+    type: 'xp',
+    min: 5,
+    max: 25, // Daha düşük XP aralığı
+    name: 'Normal XP',
+    icon: 'star',
+    color: '#FFD700'
+  },
+  bonus_campaign: {
+    probability: 0.12, // %12 şans
+    type: 'bonus_campaign',
+    name: 'Bonus Kampanya',
+    description: 'Özel bir kampanyadan yararlan',
+    icon: 'gift',
+    color: '#9B59B6',
+    xpBonus: 50 // Daha düşük bonus
+  },
+  jackpot: {
+    probability: 0.03, // %3 şans (çok nadir!)
+    type: 'jackpot',
+    name: 'JACKPOT!',
+    description: 'Büyük ödül!',
+    icon: 'trophy',
+    color: '#FF6B6B',
+    xpBonus: 300 // Daha dengeli jackpot
+  }
+};
+
+// Sürpriz kutusu açılma şansı (her kampanya kullanımında değil!)
+const SURPRISE_BOX_TRIGGER_CHANCE = 0.25; // %25 şansla açılır (4 kampanyada 1 kez ortalama)
+
+/**
+ * Helper: Sürpriz kutusu açılabilir mi? (günlük limit ve şans kontrolü)
+ */
+async function canOpenSurpriseBox(userId) {
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return { canOpen: false, reason: 'Kullanıcı bulunamadı' };
+    }
+
+    // Gamification yoksa başlat
+    if (!user.gamification) {
+      user.gamification = {
+        xp: 0,
+        level: 'Bronze',
+        totalXp: 0,
+        badges: [],
+        dailyTasks: {
+          currentStreak: 0,
+          longestStreak: 0,
+          completedTasksToday: [],
+          totalTasksCompleted: 0,
+          sharesToday: []
+        },
+        brandLoyalty: [],
+        collections: []
+      };
+      await user.save();
+    }
+
+    // Günlük limit kontrolü (günde maksimum 1 kutu)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // dailyTasks içindeki lastSurpriseBoxDate'i kontrol et
+    const lastBoxDate = user.gamification.dailyTasks?.lastSurpriseBoxDate 
+      ? new Date(user.gamification.dailyTasks.lastSurpriseBoxDate)
+      : null;
+    
+    if (lastBoxDate) {
+      const lastBoxDateOnly = new Date(lastBoxDate);
+      lastBoxDateOnly.setHours(0, 0, 0, 0);
+      const todayOnly = new Date(today);
+      todayOnly.setHours(0, 0, 0, 0);
+
+      // Bugün zaten kutu açılmış mı?
+      if (lastBoxDateOnly.getTime() === todayOnly.getTime()) {
+        return { canOpen: false, reason: 'Bugün zaten sürpriz kutusu açtınız. Yarın tekrar deneyin!' };
+      }
+    }
+
+    // Şans kontrolü (%25 şansla açılır)
+    const random = Math.random();
+    if (random > SURPRISE_BOX_TRIGGER_CHANCE) {
+      return { canOpen: false, reason: 'Şans bu sefer yanınızda değildi. Bir sonraki kampanyada tekrar deneyin!' };
+    }
+
+    return { canOpen: true };
+  } catch (error) {
+    console.error('Sürpriz kutusu kontrol hatası:', error);
+    return { canOpen: false, reason: 'Bir hata oluştu' };
+  }
+}
+
+/**
+ * Sürpriz kutusu ödülü hesapla
+ */
+function calculateSurpriseBoxReward() {
+  const random = Math.random();
+  let cumulativeProbability = 0;
+
+  for (const [key, reward] of Object.entries(SURPRISE_BOX_REWARDS)) {
+    cumulativeProbability += reward.probability;
+    if (random <= cumulativeProbability) {
+      if (reward.type === 'xp') {
+        const xpAmount = Math.floor(Math.random() * (reward.max - reward.min + 1)) + reward.min;
+        return {
+          ...reward,
+          amount: xpAmount
+        };
+      }
+      return reward;
+    }
+  }
+
+  // Fallback (normal XP)
+  return {
+    ...SURPRISE_BOX_REWARDS.normal,
+    amount: 20
+  };
+}
 
 // Koleksiyon tanımları
 const COLLECTIONS = {
@@ -1601,6 +1728,805 @@ router.get('/leaderboard', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * Sürpriz kutusu aç (internal helper - diğer route'lardan çağrılabilir)
+ */
+async function openSurpriseBoxInternal(userId, campaignId = null, bannerId = null) {
+  try {
+    // Önce açılabilir mi kontrol et
+    const checkResult = await canOpenSurpriseBox(userId);
+    if (!checkResult.canOpen) {
+      return { 
+        success: false, 
+        message: checkResult.reason || 'Sürpriz kutusu açılamadı',
+        canOpen: false
+      };
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return { success: false, message: 'Kullanıcı bulunamadı!' };
+    }
+
+    // Gamification yoksa başlat
+    if (!user.gamification) {
+      user.gamification = {
+        xp: 0,
+        level: 'Bronze',
+        totalXp: 0,
+        badges: [],
+        dailyTasks: {
+          currentStreak: 0,
+          longestStreak: 0,
+          completedTasksToday: [],
+          totalTasksCompleted: 0,
+          sharesToday: []
+        },
+        brandLoyalty: [],
+        collections: []
+      };
+    }
+
+    // Ödülü hesapla
+    const reward = calculateSurpriseBoxReward();
+    
+    let rewardData = {
+      type: reward.type,
+      name: reward.name,
+      icon: reward.icon,
+      color: reward.color,
+      description: reward.description || null
+    };
+
+    // Ödülü uygula
+    if (reward.type === 'xp') {
+      const xpAmount = reward.amount;
+      await user.addXP(xpAmount, `Sürpriz Kutusu: ${reward.name}`);
+      rewardData.amount = xpAmount;
+      rewardData.message = `${xpAmount} XP kazandınız!`;
+    } else if (reward.type === 'bonus_campaign') {
+      // Bonus kampanya - özel bir kampanya kodu veya indirim kuponu
+      const bonusXP = reward.xpBonus || 50;
+      await user.addXP(bonusXP, `Sürpriz Kutusu: ${reward.name}`);
+      rewardData.amount = bonusXP;
+      rewardData.message = `${reward.name}! ${bonusXP} bonus XP kazandınız!`;
+      rewardData.couponCode = `BONUS-${Date.now().toString(36).toUpperCase()}`;
+    } else if (reward.type === 'jackpot') {
+      // JACKPOT - büyük ödül (çok nadir!)
+      const jackpotXP = reward.xpBonus || 300;
+      await user.addXP(jackpotXP, `Sürpriz Kutusu: ${reward.name}`);
+      
+      // Özel rozet ver
+      await user.addBadge(
+        'jackpot_winner',
+        'Jackpot Kazananı',
+        'special',
+        'Sürpriz kutusundan jackpot kazandınız!'
+      );
+      
+      rewardData.amount = jackpotXP;
+      rewardData.message = `🎉 JACKPOT! ${jackpotXP} XP + Özel Rozet kazandınız!`;
+      rewardData.badge = 'jackpot_winner';
+    }
+
+    // Günlük limit kaydı
+    if (!user.gamification.dailyTasks) {
+      user.gamification.dailyTasks = {
+        currentStreak: 0,
+        longestStreak: 0,
+        completedTasksToday: [],
+        totalTasksCompleted: 0,
+        sharesToday: []
+      };
+    }
+    user.gamification.dailyTasks.lastSurpriseBoxDate = new Date();
+    await user.save();
+
+    return {
+      success: true,
+      message: 'Sürpriz kutusu açıldı!',
+      data: {
+        reward: rewardData,
+        levelInfo: user.getLevelInfo()
+      },
+      canOpen: true
+    };
+  } catch (error) {
+    console.error('Sürpriz kutusu hatası:', error);
+    return {
+      success: false,
+      message: 'Sürpriz kutusu açılırken hata oluştu!',
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Sürpriz kutusu aç
+ * POST /api/gamification/open-surprise-box
+ */
+router.post('/open-surprise-box', authenticateToken, async (req, res) => {
+  try {
+    const { campaignId, bannerId } = req.body;
+    const userId = req.userId;
+
+    const result = await openSurpriseBoxInternal(userId, campaignId, bannerId);
+    
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('Sürpriz kutusu hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Sürpriz kutusu açılırken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * ============================================
+ * ARKADAŞ SAVAŞI SİSTEMİ
+ * ============================================
+ */
+
+/**
+ * Arkadaş ara (telefon veya kullanıcı adı ile)
+ * GET /api/gamification/friends/search
+ */
+router.get('/friends/search', authenticateToken, async (req, res) => {
+  try {
+    const { query, type = 'phone' } = req.query; // type: 'phone' veya 'name'
+    const userId = req.userId;
+
+    if (!query || query.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Arama sorgusu gerekli!'
+      });
+    }
+
+    let searchQuery = {};
+    if (type === 'phone') {
+      // Telefon numarası ile ara (kısmi eşleşme)
+      searchQuery.phone = { $regex: query.trim(), $options: 'i' };
+    } else if (type === 'name') {
+      // İsim ile ara
+      searchQuery.name = { $regex: query.trim(), $options: 'i' };
+    }
+
+    // Kendisini ve zaten arkadaş olanları hariç tut
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı!'
+      });
+    }
+
+    const friendIds = user.friends?.map(f => f.friendId.toString()) || [];
+    friendIds.push(userId.toString());
+
+    searchQuery._id = { $nin: friendIds.map(id => mongoose.Types.ObjectId(id)) };
+    searchQuery.userType = 'user'; // Sadece normal kullanıcılar
+
+    const results = await User.find(searchQuery)
+      .select('name phone profilePhoto gamification.level gamification.totalXp')
+      .limit(20)
+      .lean();
+
+    res.json({
+      success: true,
+      data: {
+        results: results.map(u => ({
+          _id: u._id,
+          name: u.name,
+          phone: u.phone,
+          profilePhoto: u.profilePhoto,
+          level: u.gamification?.level || 'Bronze',
+          totalXp: u.gamification?.totalXp || 0
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Arkadaş arama hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Arkadaş aranırken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Arkadaşlık isteği gönder
+ * POST /api/gamification/friends/request
+ */
+router.post('/friends/request', authenticateToken, async (req, res) => {
+  try {
+    const { friendId } = req.body;
+    const userId = req.userId;
+
+    if (!friendId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Arkadaş ID gerekli!'
+      });
+    }
+
+    if (friendId === userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Kendinizi arkadaş olarak ekleyemezsiniz!'
+      });
+    }
+
+    const user = await User.findById(userId);
+    const friend = await User.findById(friendId);
+
+    if (!user || !friend) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı!'
+      });
+    }
+
+    // Zaten arkadaş mı?
+    const alreadyFriend = user.friends?.some(f => f.friendId.toString() === friendId);
+    if (alreadyFriend) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bu kullanıcı zaten arkadaşınız!'
+      });
+    }
+
+    // Zaten istek gönderilmiş mi?
+    const alreadySent = user.friendRequests?.sent?.some(
+      r => r.toUserId.toString() === friendId
+    );
+    if (alreadySent) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bu kullanıcıya zaten arkadaşlık isteği gönderdiniz!'
+      });
+    }
+
+    // İstek gönder
+    if (!user.friendRequests) {
+      user.friendRequests = { sent: [], received: [] };
+    }
+    if (!user.friendRequests.sent) {
+      user.friendRequests.sent = [];
+    }
+
+    user.friendRequests.sent.push({
+      toUserId: friendId,
+      sentAt: new Date()
+    });
+
+    // Karşı tarafa da ekle
+    if (!friend.friendRequests) {
+      friend.friendRequests = { sent: [], received: [] };
+    }
+    if (!friend.friendRequests.received) {
+      friend.friendRequests.received = [];
+    }
+
+    friend.friendRequests.received.push({
+      fromUserId: userId,
+      receivedAt: new Date()
+    });
+
+    await user.save();
+    await friend.save();
+
+    res.json({
+      success: true,
+      message: 'Arkadaşlık isteği gönderildi!'
+    });
+  } catch (error) {
+    console.error('Arkadaşlık isteği gönderme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Arkadaşlık isteği gönderilirken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Arkadaşlık isteğini kabul et
+ * POST /api/gamification/friends/accept
+ */
+router.post('/friends/accept', authenticateToken, async (req, res) => {
+  try {
+    const { friendId } = req.body;
+    const userId = req.userId;
+
+    if (!friendId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Arkadaş ID gerekli!'
+      });
+    }
+
+    const user = await User.findById(userId);
+    const friend = await User.findById(friendId);
+
+    if (!user || !friend) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı!'
+      });
+    }
+
+    // İstek var mı kontrol et
+    const requestExists = user.friendRequests?.received?.some(
+      r => r.fromUserId.toString() === friendId
+    );
+    if (!requestExists) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bekleyen arkadaşlık isteği bulunamadı!'
+      });
+    }
+
+    // Zaten arkadaş mı?
+    const alreadyFriend = user.friends?.some(f => f.friendId.toString() === friendId);
+    if (alreadyFriend) {
+      // İsteği temizle
+      user.friendRequests.received = user.friendRequests.received.filter(
+        r => r.fromUserId.toString() !== friendId
+      );
+      friend.friendRequests.sent = friend.friendRequests.sent.filter(
+        r => r.toUserId.toString() !== userId
+      );
+      await user.save();
+      await friend.save();
+      return res.status(400).json({
+        success: false,
+        message: 'Bu kullanıcı zaten arkadaşınız!'
+      });
+    }
+
+    // Arkadaş ekle (her iki tarafa da)
+    if (!user.friends) {
+      user.friends = [];
+    }
+    if (!friend.friends) {
+      friend.friends = [];
+    }
+
+    user.friends.push({
+      friendId: friendId,
+      addedAt: new Date()
+    });
+    friend.friends.push({
+      friendId: userId,
+      addedAt: new Date()
+    });
+
+    // İstekleri temizle
+    user.friendRequests.received = user.friendRequests.received.filter(
+      r => r.fromUserId.toString() !== friendId
+    );
+    friend.friendRequests.sent = friend.friendRequests.sent.filter(
+      r => r.toUserId.toString() !== userId
+    );
+
+    // İstatistikleri güncelle
+    user.friendStats = user.friendStats || { totalFriends: 0, weeklyXP: 0, monthlyXP: 0 };
+    friend.friendStats = friend.friendStats || { totalFriends: 0, weeklyXP: 0, monthlyXP: 0 };
+    user.friendStats.totalFriends = user.friends.length;
+    friend.friendStats.totalFriends = friend.friends.length;
+
+    // Davet bonusu ver (her ikisine de 50 XP)
+    await user.addXP(50, 'Arkadaş eklendi: Davet bonusu');
+    await friend.addXP(50, 'Arkadaş eklendi: Davet bonusu');
+
+    await user.save();
+    await friend.save();
+
+    res.json({
+      success: true,
+      message: 'Arkadaşlık isteği kabul edildi! Her ikiniz de 50 XP bonus kazandınız!',
+      data: {
+        friend: {
+          _id: friend._id,
+          name: friend.name,
+          phone: friend.phone,
+          profilePhoto: friend.profilePhoto,
+          level: friend.gamification?.level || 'Bronze',
+          totalXp: friend.gamification?.totalXp || 0
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Arkadaşlık isteği kabul hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Arkadaşlık isteği kabul edilirken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Arkadaşlık isteğini reddet
+ * POST /api/gamification/friends/reject
+ */
+router.post('/friends/reject', authenticateToken, async (req, res) => {
+  try {
+    const { friendId } = req.body;
+    const userId = req.userId;
+
+    if (!friendId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Arkadaş ID gerekli!'
+      });
+    }
+
+    const user = await User.findById(userId);
+    const friend = await User.findById(friendId);
+
+    if (!user || !friend) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı!'
+      });
+    }
+
+    // İstekleri temizle
+    if (user.friendRequests?.received) {
+      user.friendRequests.received = user.friendRequests.received.filter(
+        r => r.fromUserId.toString() !== friendId
+      );
+    }
+    if (friend.friendRequests?.sent) {
+      friend.friendRequests.sent = friend.friendRequests.sent.filter(
+        r => r.toUserId.toString() !== userId
+      );
+    }
+
+    await user.save();
+    await friend.save();
+
+    res.json({
+      success: true,
+      message: 'Arkadaşlık isteği reddedildi!'
+    });
+  } catch (error) {
+    console.error('Arkadaşlık isteği reddetme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Arkadaşlık isteği reddedilirken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Arkadaş listesi
+ * GET /api/gamification/friends/list
+ */
+router.get('/friends/list', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.userId;
+    const user = await User.findById(userId).populate('friends.friendId', 'name phone profilePhoto gamification.level gamification.totalXp');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı!'
+      });
+    }
+
+    const friends = (user.friends || []).map(f => {
+      const friend = f.friendId;
+      if (!friend) return null;
+      return {
+        _id: friend._id,
+        name: friend.name,
+        phone: friend.phone,
+        profilePhoto: friend.profilePhoto,
+        level: friend.gamification?.level || 'Bronze',
+        totalXp: friend.gamification?.totalXp || 0,
+        addedAt: f.addedAt,
+        nickname: f.nickname
+      };
+    }).filter(f => f !== null);
+
+    res.json({
+      success: true,
+      data: {
+        friends,
+        totalFriends: friends.length
+      }
+    });
+  } catch (error) {
+    console.error('Arkadaş listesi hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Arkadaş listesi alınırken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Bekleyen arkadaşlık istekleri
+ * GET /api/gamification/friends/requests
+ */
+router.get('/friends/requests', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.userId;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı!'
+      });
+    }
+
+    // Gönderilen istekler
+    const sentRequests = (user.friendRequests?.sent || []).map(async (r) => {
+      const friend = await User.findById(r.toUserId)
+        .select('name phone profilePhoto gamification.level gamification.totalXp')
+        .lean();
+      return {
+        _id: friend?._id,
+        name: friend?.name,
+        phone: friend?.phone,
+        profilePhoto: friend?.profilePhoto,
+        level: friend?.gamification?.level || 'Bronze',
+        totalXp: friend?.gamification?.totalXp || 0,
+        sentAt: r.sentAt
+      };
+    });
+
+    // Alınan istekler
+    const receivedRequests = (user.friendRequests?.received || []).map(async (r) => {
+      const friend = await User.findById(r.fromUserId)
+        .select('name phone profilePhoto gamification.level gamification.totalXp')
+        .lean();
+      return {
+        _id: friend?._id,
+        name: friend?.name,
+        phone: friend?.phone,
+        profilePhoto: friend?.profilePhoto,
+        level: friend?.gamification?.level || 'Bronze',
+        totalXp: friend?.gamification?.totalXp || 0,
+        receivedAt: r.receivedAt
+      };
+    });
+
+    const sent = await Promise.all(sentRequests);
+    const received = await Promise.all(receivedRequests);
+
+    res.json({
+      success: true,
+      data: {
+        sent: sent.filter(r => r._id),
+        received: received.filter(r => r._id)
+      }
+    });
+  } catch (error) {
+    console.error('Arkadaşlık istekleri hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Arkadaşlık istekleri alınırken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Arkadaşlarla puan karşılaştırma
+ * GET /api/gamification/friends/compare
+ */
+router.get('/friends/compare', authenticateToken, async (req, res) => {
+  try {
+    const { period = 'weekly' } = req.query; // weekly, monthly, alltime
+    const userId = req.userId;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı!'
+      });
+    }
+
+    // Haftalık/aylık XP'yi güncelle (gerekirse)
+    await updateFriendStats(user);
+
+    // Arkadaşları getir
+    const friendIds = (user.friends || []).map(f => f.friendId);
+    const friends = await User.find({ _id: { $in: friendIds } })
+      .select('name phone profilePhoto gamification.level gamification.totalXp friendStats')
+      .lean();
+
+    // Karşılaştırma verileri
+    let userXP, friendXPList;
+
+    if (period === 'weekly') {
+      userXP = user.friendStats?.weeklyXP || 0;
+      friendXPList = friends.map(f => ({
+        _id: f._id,
+        name: f.name,
+        phone: f.phone,
+        profilePhoto: f.profilePhoto,
+        level: f.gamification?.level || 'Bronze',
+        xp: f.friendStats?.weeklyXP || 0
+      }));
+    } else if (period === 'monthly') {
+      userXP = user.friendStats?.monthlyXP || 0;
+      friendXPList = friends.map(f => ({
+        _id: f._id,
+        name: f.name,
+        phone: f.phone,
+        profilePhoto: f.profilePhoto,
+        level: f.gamification?.level || 'Bronze',
+        xp: f.friendStats?.monthlyXP || 0
+      }));
+    } else {
+      // All time
+      userXP = user.gamification?.totalXp || 0;
+      friendXPList = friends.map(f => ({
+        _id: f._id,
+        name: f.name,
+        phone: f.phone,
+        profilePhoto: f.profilePhoto,
+        level: f.gamification?.level || 'Bronze',
+        xp: f.gamification?.totalXp || 0
+      }));
+    }
+
+    // Sıralama
+    friendXPList.sort((a, b) => b.xp - a.xp);
+
+    // Kullanıcının sırası
+    const userRank = friendXPList.findIndex(f => f._id.toString() === userId) + 1;
+    if (userRank === 0) {
+      // Kullanıcı listede yoksa, kendi XP'sini ekle
+      friendXPList.push({
+        _id: user._id,
+        name: user.name,
+        phone: user.phone,
+        profilePhoto: user.profilePhoto,
+        level: user.gamification?.level || 'Bronze',
+        xp: userXP
+      });
+      friendXPList.sort((a, b) => b.xp - a.xp);
+    }
+
+    const finalUserRank = friendXPList.findIndex(f => f._id.toString() === userId) + 1;
+
+    res.json({
+      success: true,
+      data: {
+        period,
+        userXP,
+        userRank: finalUserRank,
+        totalFriends: friendXPList.length,
+        leaderboard: friendXPList.map((f, index) => ({
+          ...f,
+          rank: index + 1,
+          isYou: f._id.toString() === userId
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Arkadaş karşılaştırma hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Arkadaş karşılaştırması yapılırken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Arkadaş sil
+ * DELETE /api/gamification/friends/remove
+ */
+router.delete('/friends/remove', authenticateToken, async (req, res) => {
+  try {
+    const { friendId } = req.body;
+    const userId = req.userId;
+
+    if (!friendId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Arkadaş ID gerekli!'
+      });
+    }
+
+    const user = await User.findById(userId);
+    const friend = await User.findById(friendId);
+
+    if (!user || !friend) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı!'
+      });
+    }
+
+    // Arkadaşlığı kaldır (her iki taraftan da)
+    if (user.friends) {
+      user.friends = user.friends.filter(f => f.friendId.toString() !== friendId);
+    }
+    if (friend.friends) {
+      friend.friends = friend.friends.filter(f => f.friendId.toString() !== userId);
+    }
+
+    // İstatistikleri güncelle
+    if (user.friendStats) {
+      user.friendStats.totalFriends = user.friends.length;
+    }
+    if (friend.friendStats) {
+      friend.friendStats.totalFriends = friend.friends.length;
+    }
+
+    await user.save();
+    await friend.save();
+
+    res.json({
+      success: true,
+      message: 'Arkadaşlık kaldırıldı!'
+    });
+  } catch (error) {
+    console.error('Arkadaş silme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Arkadaş silinirken hata oluştu!',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Helper: Arkadaş istatistiklerini güncelle (haftalık/aylık XP)
+ */
+async function updateFriendStats(user) {
+  try {
+    const now = new Date();
+    const lastWeeklyReset = user.friendStats?.lastWeeklyReset;
+    const lastMonthlyReset = user.friendStats?.monthlyXP;
+
+    // Haftalık reset kontrolü
+    if (!lastWeeklyReset || (now - new Date(lastWeeklyReset)) > 7 * 24 * 60 * 60 * 1000) {
+      user.friendStats = user.friendStats || { totalFriends: 0, weeklyXP: 0, monthlyXP: 0 };
+      user.friendStats.weeklyXP = 0;
+      user.friendStats.lastWeeklyReset = now;
+    }
+
+    // Aylık reset kontrolü
+    if (!lastMonthlyReset || (now.getMonth() !== new Date(lastMonthlyReset).getMonth())) {
+      user.friendStats = user.friendStats || { totalFriends: 0, weeklyXP: 0, monthlyXP: 0 };
+      user.friendStats.monthlyXP = 0;
+      user.friendStats.lastMonthlyReset = now;
+    }
+
+    // XP'yi güncelle (totalXp'den hesapla)
+    const totalXp = user.gamification?.totalXp || 0;
+    // Bu hafta kazanılan XP = totalXp - (geçen hafta totalXp)
+    // Basit bir yaklaşım: totalXp'yi kullan (gerçek uygulamada daha detaylı tracking gerekir)
+    user.friendStats.weeklyXP = totalXp; // Geçici: gerçek implementasyonda haftalık tracking gerekir
+    user.friendStats.monthlyXP = totalXp; // Geçici: gerçek implementasyonda aylık tracking gerekir
+
+    await user.save();
+  } catch (error) {
+    console.error('Arkadaş istatistikleri güncelleme hatası:', error);
+  }
+}
+
 module.exports = router;
 module.exports.updateCollectionProgress = updateCollectionProgress;
+module.exports.openSurpriseBox = openSurpriseBoxInternal;
 
