@@ -2497,28 +2497,34 @@ async function updateFriendStats(user) {
   try {
     const now = new Date();
     const lastWeeklyReset = user.friendStats?.lastWeeklyReset;
-    const lastMonthlyReset = user.friendStats?.monthlyXP;
+    const lastMonthlyReset = user.friendStats?.lastMonthlyReset;
 
-    // Haftalık reset kontrolü
+    // friendStats yoksa oluştur
+    if (!user.friendStats) {
+      user.friendStats = {
+        totalFriends: user.friends?.length || 0,
+        weeklyXP: 0,
+        monthlyXP: 0,
+        lastWeeklyReset: now,
+        lastMonthlyReset: now
+      };
+    }
+
+    // Haftalık reset kontrolü (7 gün geçmişse)
     if (!lastWeeklyReset || (now - new Date(lastWeeklyReset)) > 7 * 24 * 60 * 60 * 1000) {
-      user.friendStats = user.friendStats || { totalFriends: 0, weeklyXP: 0, monthlyXP: 0 };
       user.friendStats.weeklyXP = 0;
       user.friendStats.lastWeeklyReset = now;
     }
 
-    // Aylık reset kontrolü
-    if (!lastMonthlyReset || (now.getMonth() !== new Date(lastMonthlyReset).getMonth())) {
-      user.friendStats = user.friendStats || { totalFriends: 0, weeklyXP: 0, monthlyXP: 0 };
+    // Aylık reset kontrolü (ay değişmişse)
+    if (!lastMonthlyReset || now.getMonth() !== new Date(lastMonthlyReset).getMonth() || 
+        now.getFullYear() !== new Date(lastMonthlyReset).getFullYear()) {
       user.friendStats.monthlyXP = 0;
       user.friendStats.lastMonthlyReset = now;
     }
 
-    // XP'yi güncelle (totalXp'den hesapla)
-    const totalXp = user.gamification?.totalXp || 0;
-    // Bu hafta kazanılan XP = totalXp - (geçen hafta totalXp)
-    // Basit bir yaklaşım: totalXp'yi kullan (gerçek uygulamada daha detaylı tracking gerekir)
-    user.friendStats.weeklyXP = totalXp; // Geçici: gerçek implementasyonda haftalık tracking gerekir
-    user.friendStats.monthlyXP = totalXp; // Geçici: gerçek implementasyonda aylık tracking gerekir
+    // Total friends sayısını güncelle
+    user.friendStats.totalFriends = user.friends?.length || 0;
 
     await user.save();
   } catch (error) {
