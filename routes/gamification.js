@@ -474,13 +474,84 @@ router.get('/daily-tasks', authenticateToken, async (req, res) => {
     // Bugün tamamlanan görevler
     const completedTasksToday = user.gamification.dailyTasks?.completedTasksToday || [];
     
-    // Görevleri hazırla
-    const tasks = Object.values(DAILY_TASKS).map(task => ({
-      ...task,
-      completed: completedTasksToday.includes(task.id),
-      progress: getTaskProgress(user, task),
-      canComplete: !completedTasksToday.includes(task.id)
-    }));
+    // Görevleri hazırla (ilerleme bilgisi ile)
+    const tasksWithProgress = await Promise.all(
+      Object.values(DAILY_TASKS).map(async (task) => {
+        let progress = 0;
+        let progressText = '';
+        
+        // Check-in görevi özel
+        if (task.id === 'daily_checkin') {
+          progress = completedTasksToday.includes(task.id) ? 1 : 0;
+          progressText = progress === 1 ? 'Tamamlandı' : 'Bekliyor';
+        } else {
+          // Diğer görevler için gerçek ilerleme hesapla
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          
+          try {
+            if (task.type === 'discover') {
+              const CodeHistory = require('../models/CodeHistory');
+              const Banner = require('../models/Banner');
+              
+              const todayCodeBannerIds = await CodeHistory.find({
+                userId: user._id,
+                createdAt: { $gte: today, $lt: tomorrow }
+              }).distinct('bannerId');
+              
+              if (todayCodeBannerIds.length > 0) {
+                const banners = await Banner.find({
+                  _id: { $in: todayCodeBannerIds }
+                }).select('restaurant');
+                
+                const uniqueRestaurantIds = [...new Set(banners.map(b => b.restaurant?.toString()).filter(Boolean))];
+                progress = uniqueRestaurantIds.length;
+                progressText = `${progress} / ${task.target || 2}`;
+              } else {
+                progressText = `0 / ${task.target || 2}`;
+              }
+            } else if (task.type === 'event') {
+              const Event = require('../models/Event');
+              const todayEvents = await Event.find({
+                'participants.userId': user._id,
+                'participants.status': { $in: ['approved', 'attended'] },
+                'participants.appliedAt': { $gte: today, $lt: tomorrow }
+              }).countDocuments();
+              
+              progress = todayEvents;
+              progressText = progress >= 1 ? 'Tamamlandı' : 'Bekliyor';
+            } else if (task.type === 'campaign') {
+              const CodeHistory = require('../models/CodeHistory');
+              const todayUsedCampaigns = await CodeHistory.find({
+                userId: user._id,
+                used: true,
+                usedAt: { $gte: today, $lt: tomorrow }
+              }).countDocuments();
+              
+              progress = todayUsedCampaigns;
+              progressText = progress >= 1 ? 'Tamamlandı' : 'Bekliyor';
+            } else {
+              progressText = 'Bekliyor';
+            }
+          } catch (error) {
+            console.error(`Görev ilerleme hatası (${task.id}):`, error);
+            progressText = 'Hesaplanamadı';
+          }
+        }
+        
+        return {
+          ...task,
+          completed: completedTasksToday.includes(task.id),
+          progress,
+          progressText,
+          canComplete: !completedTasksToday.includes(task.id)
+        };
+      })
+    );
+    
+    const tasks = tasksWithProgress;
 
     // Streak bonusunu hesapla
     const streakBonus = STREAK_BONUSES[currentStreak] || { xpMultiplier: 1.0, badge: null };
@@ -589,11 +660,24 @@ router.post('/complete-task', authenticateToken, async (req, res) => {
       });
     }
 
-    // Görev ilerlemesini kontrol et
-    if (!canCompleteTask(user, task)) {
+    // Görev ilerlemesini kontrol et (gerçek aktivite doğrulaması)
+    const canComplete = await canCompleteTask(user, task);
+    if (!canComplete) {
+      // Görev tipine göre özel mesaj
+      let message = 'Görev henüz tamamlanamaz!';
+      if (task.type === 'discover') {
+        message = `Bu görev için bugün ${task.target || 2} farklı marka keşfetmeniz gerekiyor.`;
+      } else if (task.type === 'event') {
+        message = 'Bu görev için bugün bir etkinliğe katılmanız gerekiyor.';
+      } else if (task.type === 'campaign') {
+        message = 'Bu görev için bugün bir kampanya kullanmanız gerekiyor.';
+      } else if (task.type === 'share') {
+        message = 'Bu görev için bir kampanyayı paylaşmanız gerekiyor.';
+      }
+      
       return res.status(400).json({
         success: false,
-        message: 'Görev henüz tamamlanamaz!'
+        message: message
       });
     }
 
@@ -813,12 +897,80 @@ function getTaskProgress(user, task) {
 }
 
 /**
- * Helper: Görev tamamlanabilir mi?
+ * Helper: Görev tamamlanabilir mi? (Gerçek aktivite kontrolü)
  */
-function canCompleteTask(user, task) {
-  // Görev tipine göre kontrol
-  // Şimdilik tüm görevler tamamlanabilir
-  return true;
+async function canCompleteTask(user, task) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  try {
+    switch (task.type) {
+      case 'checkin':
+        // Check-in görevi için özel endpoint kullanılmalı
+        return false; // Check-in için özel endpoint var, buradan tamamlanamaz
+      
+      case 'discover':
+        // Bugün keşfedilen yeni marka sayısını kontrol et
+        const CodeHistory = require('../models/CodeHistory');
+        const Banner = require('../models/Banner');
+        
+        // Bugün oluşturulan kodlar (yeni marka keşfi)
+        const todayCodeBannerIds = await CodeHistory.find({
+          userId: user._id,
+          createdAt: { $gte: today, $lt: tomorrow }
+        }).distinct('bannerId');
+        
+        if (todayCodeBannerIds.length === 0) {
+          return false;
+        }
+        
+        // Bu banner'ların restaurant ID'lerini al
+        const banners = await Banner.find({
+          _id: { $in: todayCodeBannerIds }
+        }).select('restaurant');
+        
+        // Farklı restaurant sayısı (unique marka sayısı)
+        const uniqueRestaurantIds = [...new Set(banners.map(b => b.restaurant?.toString()).filter(Boolean))];
+        const uniqueBrandsToday = uniqueRestaurantIds.length;
+        
+        return uniqueBrandsToday >= (task.target || 2);
+      
+      case 'event':
+        // Bugün katıldığı etkinlik sayısını kontrol et
+        const Event = require('../models/Event');
+        const todayEvents = await Event.find({
+          'participants.userId': user._id,
+          'participants.status': { $in: ['approved', 'attended'] },
+          'participants.appliedAt': { $gte: today, $lt: tomorrow }
+        }).countDocuments();
+        
+        return todayEvents >= 1;
+      
+      case 'campaign':
+        // Bugün kullanılan kampanya sayısını kontrol et
+        const CodeHistory2 = require('../models/CodeHistory');
+        const todayUsedCampaigns = await CodeHistory2.find({
+          userId: user._id,
+          used: true,
+          usedAt: { $gte: today, $lt: tomorrow }
+        }).countDocuments();
+        
+        return todayUsedCampaigns >= 1;
+      
+      case 'share':
+        // Kampanya paylaşımı için şimdilik false döndür
+        // Paylaşım tracking mekanizması eklendiğinde buraya eklenecek
+        return false;
+      
+      default:
+        return false;
+    }
+  } catch (error) {
+    console.error('Görev doğrulama hatası:', error);
+    return false;
+  }
 }
 
 /**
